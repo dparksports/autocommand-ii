@@ -1,0 +1,145 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Version>2026.10.25.3</Version>
+    <AssemblyName>AutoCommand</AssemblyName>
+    <Product>AutoCommand</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <!-- Suppress duplicate-attribute CS0579 from the WPF XAML designer _wpftmp project -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
+    <PackageReference Include="System.Management" Version="10.0.0-preview.4.25258.110" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="Sdk\AutoCommand.Sdk.csproj" />
+    <!-- The svchost capture/analysis engine, linked in-process: the app runs
+         it directly instead of spawning a bundled child exe (which SmartScreen
+         hard-blocks on download extracts). Vendored in-repo at svchost-watch\
+         (formerly a sibling repository, dparksports/svchost-watch — archived).
+         The standalone CLI exe is not built or shipped; already-installed
+         boot-autostart copies keep working. -->
+    <ProjectReference Include="svchost-watch\SvchostAnalyzer.Core\SvchostAnalyzer.Core.csproj" />
+    <!-- The MCP client's spawn target: a tiny asInvoker console exe (no admin,
+         no UAC) that forwards to this app's AI-access listener. Built and
+         published alongside the app; Settings > AI access installs a copy to
+         %LOCALAPPDATA%\AutoCommand\tools and points the client's MCP config
+         at it. This exe itself must never be the spawn target — it carries
+         requireAdministrator. -->
+    <ProjectReference Include="AgentProxy\AutoCommand.AgentProxy.csproj" />
+    <!-- OneSettings cadence engine, linked in-process for the OneSettings tab
+         (same in-process pattern as SvchostAnalyzer.Core; the OneSettingsCadence
+         CLI exe builds separately over the same Core project). -->
+    <ProjectReference Include="OneSettingsCadence\OneSettingsCadence.Core\OneSettingsCadence.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="app_icon.ico" />
+    <!-- The python audit-hook payload: embedded, read via
+         Assembly.GetManifestResourceStream by PyTraceInstallerService — never
+         written to disk as a standalone app file. -->
+    <EmbeddedResource Include="Assets\PyTraceHook.py" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\telemetry_rules.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Plain-English explanations for known scheduled tasks (Taskhostw
+         Spawns tab). User-extensible: add path-keyed entries and restart. -->
+    <Content Include="Assets\known-tasks.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exclude scratch/test scripts — they define their own Main() -->
+    <Compile Remove="ScratchTest\**" />
+    <Compile Remove="Sdk\**" />
+    <!-- Self-test harness: links the app's services itself and has its own
+         Main() (same reason as ScratchTest) -->
+    <Compile Remove="PyTraceSelfTest\**" />
+    <Compile Remove="TaskAttributionSelfTest\**" />
+    <Compile Remove="OneSettingsCadenceSelfTest\**" />
+    <!-- BITS tracer self-test: drives ParseMessage/Apply/stat/firewall
+         logic offline with synthetic events (see BitsTraceSelfTest\) -->
+    <Compile Remove="BitsTraceSelfTest\**" />
+    <!-- Proxy install self-test: drives McpClientRegistration's install
+         decision logic with synthetic dirs (see ProxyInstallSelfTest\) -->
+    <Compile Remove="ProxyInstallSelfTest\**" />
+    <!-- Net watch self-test: dual-family TCP table + Sysmon archive engine
+         (watermark dedupe, rotation, search, prune — see NetWatchSelfTest\) -->
+    <Compile Remove="NetWatchSelfTest\**" />
+    <!-- Site doctor self-test: fingerprint + verdict rules offline, and the
+         dual-shape TLS probe against live loopback listeners — one that
+         answers handshakes, one that black-holes them (see SiteDoctorSelfTest\) -->
+    <Compile Remove="SiteDoctorSelfTest\**" />
+    <!-- Vendored engine: compiled through its own ProjectReference — without
+         this exclusion the default glob would pull its .cs into the app
+         assembly too (duplicate types, and the CLI's top-level Program). -->
+    <Compile Remove="svchost-watch\**" />
+    <!-- Agent proxy: built through its own ProjectReference — same glob
+         reason as svchost-watch (its obj\** auto-generated sources would be
+         double-compiled into the WPF temp project) -->
+    <Compile Remove="AgentProxy\**" />
+    <!-- OneSettings cadence CLI — standalone console tool for the inbox
+         OneSettings RefreshCache task, built separately (dotnet build
+         OneSettingsCadence\OneSettingsCadence.csproj); own Main() -->
+    <Compile Remove="OneSettingsCadence\**" />
+  </ItemGroup>
+
+  <!-- Filter out Linux .so native binaries when publishing for Windows win-x64 -->
+  <Target Name="RemoveUnusedPlatformLibs" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.so'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- ── Versioning: <Version> above is the single source of truth ──
+       GenerateAssemblyInfo stays false (WPF designer CS0579 workaround), so this
+       target generates the assembly version attributes from <Version> into obj\
+       at build time. Properties\AssemblyInfo.cs deliberately carries none — never
+       hand-add AssemblyVersion/FileVersion/InformationalVersion anywhere; bump
+       <Version> and everything (binary, tag, zips, release title via release.ps1)
+       follows. -->
+  <Target Name="GenerateVersionAssemblyInfo" BeforeTargets="BeforeCompile">
+    <Error Condition="'$(Version)' == ''"
+           Text="GenerateVersionAssemblyInfo: &lt;Version&gt; is empty — it is the single source of truth and must be set (e.g. 2026.10.15)." />
+    <PropertyGroup>
+      <!-- exactly four segments: 3-part versions get .0, a same-day fourth
+           segment (2026.10.14.1) passes through unchanged -->
+      <Version4>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '^\d+\.\d+\.\d+$', '$0.0'))</Version4>
+      <GeneratedVersionFile>$(IntermediateOutputPath)GeneratedVersionInfo.cs</GeneratedVersionFile>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
+    <ItemGroup>
+      <GeneratedVersionLines Include="// Auto-generated from &lt;Version&gt; in AutoCommand.csproj — do not edit." />
+      <GeneratedVersionLines Include="using System.Reflection%3B" />
+      <GeneratedVersionLines Include="[assembly: AssemblyVersion(&quot;$(Version4)&quot;)]" />
+      <GeneratedVersionLines Include="[assembly: AssemblyFileVersion(&quot;$(Version4)&quot;)]" />
+      <GeneratedVersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(Version)&quot;)]" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(GeneratedVersionFile)" Lines="@(GeneratedVersionLines)" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedVersionFile)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The Svchost Trace capture engine no longer ships inside the app zip:
+       AutoCommand links SvchostAnalyzer.Core directly and runs captures
+       in-process. The standalone SvchostAnalyzer.exe (headless/boot-autostart
+       host) is a separate release asset built by release.ps1. -->
+
+</Project>
+

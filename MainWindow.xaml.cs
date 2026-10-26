@@ -1,0 +1,321 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using System.IO;
+using AutoCommand.Models;
+using AutoCommand.Services;
+using AutoCommand.Views;
+using AutoCommand.Helpers;
+
+namespace AutoCommand
+{
+    public partial class MainWindow : Window
+    {
+        private SecurityEnforcer _enforcer;
+        private TrayNotifier _trayNotifier;
+
+        private static string AppVersion =>
+            FileVersionInfo.GetVersionInfo(Environment.ProcessPath).ProductVersion ?? "unknown";
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            // Live version from the assembly instead of a hardcoded string
+            VersionText.Text = $"AutoCommand v{AppVersion}";
+
+            // Advanced investigation tabs are opt-in (Settings) — apply the
+            // saved state before anything can be selected
+            ApplyAdvancedTabs(Services.AdvancedTabsPrefs.Load());
+
+            // Layer-3 crash safety: if a previous run died mid-intercept, the
+            // journal on disk still describes the hooks it installed — undo
+            // them (proxy, firewall rule, CA) before anything else runs.
+            Services.InterceptSystemHooks.RecoverAfterCrash();
+
+            InitializeEnforcer();
+
+            // App-level TCP capture + traffic aggregation: one raw socket
+            // shared by the Python Spawns and Traffic Patterns tabs; the
+            // aggregator runs whenever either captures and persists its
+            // (process → destination → bytes) history across sessions.
+            Services.TrafficAggregationService.Shared.Attach(Services.TcpStreamCaptureService.Shared);
+            Services.TrafficAggregationService.Shared.Start();
+        }
+
+        private void InitializeEnforcer()
+        {
+            // Initialize system tray notifier first so it's ready for callbacks
+            string iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app_icon.ico");
+            _trayNotifier = new TrayNotifier(iconPath);
+            _trayNotifier.ToastActivated += BringWindowToForeground;
+
+            _enforcer = new SecurityEnforcer(OnThreatDetected);
+            _enforcer.StatusChanged += OnEnforcerStatusChanged;
+            _enforcer.ConfigurationDriftDetected += OnDriftDetected;
+
+            // Wire the tray toast notification for adapter events
+            _enforcer.OnAdapterAlert = (title, message) =>
+                Dispatcher.Invoke(() => _trayNotifier.ShowSecurityAlert(title, message));
+
+            _enforcer.Start();
+        }
+
+        private void BringWindowToForeground()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (WindowState == WindowState.Minimized)
+                    WindowState = WindowState.Normal;
+                Activate();
+                Topmost = true;
+                Topmost = false;
+                Focus();
+            });
+        }
+
+        private string _currentThreatType;
+        private string _currentThreatDetails;
+
+        /// <summary>
+        /// Lets tabs surface a finding on the app-level threat status bar
+        /// (amber text + Review button) through the same path the Security
+        /// Enforcer uses. Currently used by the BITS tab for UPLOAD-type
+        /// jobs (ATT&CK T1197 exfiltration vector).
+        /// </summary>
+        public void RaiseExternalThreat(string type, string details) => OnThreatDetected(type, details);
+
+        /// <summary>
+        /// Transmissions tab's encrypted-upload toasts: same Action Center
+        /// path as the enforcer's, but activating the toast selects the
+        /// Transmissions tab instead of just raising the window.
+        /// </summary>
+        public void ShowTransmissionsToast(string title, string message)
+        {
+            _trayNotifier?.ShowSecurityAlert(title, message, durationMs: 10000, onActivated: () =>
+                Dispatcher.Invoke(() => MainTabControl.SelectedItem = TransmissionsNavItem));
+        }
+
+        // -------------------------------------------------------------------
+        // Advanced investigation tabs — opt-in deep-dive surfaces, hidden
+        // until Settings → Advanced investigation turns them on
+        // -------------------------------------------------------------------
+
+        /// <summary>True when the tab is one of the opt-in tabs.</summary>
+        private bool IsAdvancedTab(System.Windows.Controls.TabItem t) =>
+            t == SpawnsNavItem || t == BitsNavItem || t == TrafficNavItem ||
+            t == TracesNavItem ||
+            t == BlackHoleNavItem || t == DefenderNavItem ||
+            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem;
+
+        /// <summary>
+        /// Shows or hides the advanced-investigation tabs. Also called
+        /// by SettingsView when the toggle flips (applies immediately), and
+        /// keeps the group-header tooltips honest about what is currently
+        /// shown. When the tab being viewed is hidden, selection lands back
+        /// on the Process Monitor — an invisible tab must not stay selected.
+        /// </summary>
+        public void ApplyAdvancedTabs(bool enabled)
+        {
+            var v = enabled ? Visibility.Visible : Visibility.Collapsed;
+            SpawnsNavItem.Visibility = v;
+            BitsNavItem.Visibility = v;
+            TrafficNavItem.Visibility = v;
+            TracesNavItem.Visibility = v;
+            BlackHoleNavItem.Visibility = v;
+            DefenderNavItem.Visibility = v;
+            PrivacyNavItem.Visibility = v;
+            OneSettingsNavItem.Visibility = v;
+            SysmonNavItem.Visibility = v;
+
+            WatchHeaderText.ToolTip = enabled
+                ? "Feeds that show what this machine is running and where it connects."
+                : "Feeds that show what this machine is running and where it connects.\n" +
+                  "Spawns, Traces, BITS Transfers and Traffic Patterns are hidden — Settings → Advanced investigation shows them.";
+            SystemHeaderText.ToolTip = enabled
+                ? "AI access, privacy, Windows telemetry, Sysmon health and app settings."
+                : "AI access and app settings.\n" +
+                  "Data & Privacy, OneSettings and Sysmon Audit are hidden — Settings → Advanced investigation shows them.";
+
+            if (!enabled && IsAdvancedTab(MainTabControl.SelectedItem as System.Windows.Controls.TabItem))
+                MainTabControl.SelectedItem = ProcessMonitorNavItem;
+        }
+
+        private void OnThreatDetected(string type, string details)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _currentThreatType = type;
+                _currentThreatDetails = details;
+                ThreatAlertText.Text = $"⚠ {type}: {details}";
+                ThreatAlertText.Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xA6, 0x31));
+                ReviewAlertBtn.Visibility = Visibility.Visible;
+            });
+        }
+
+        private void ReviewAlertBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentThreatType == "Privileged Task")
+            {
+                string msg = $"{_currentThreatDetails}\n\n" +
+                             "This task is running with the highest system privileges. While some third-party updaters (like Edge or Chrome) do this legitimately, malware often uses it for persistence.\n\n" +
+                             "Would you like to ignore this task permanently (Whitelist)?\n" +
+                             "Click 'No' to keep alerting. To investigate or delete the task, use the Tasks page in Shields Up.";
+                
+                var result = MessageBox.Show(msg, "Review Threat", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Extract task name and whitelist it
+                    string taskName = _currentThreatDetails.Replace("High Risk Task detected: ", "").Trim();
+                    SecurityEnforcer.WhitelistTask(taskName);
+                    ThreatAlertText.Text = "✓ Task added to whitelist.";
+                    ThreatAlertText.Foreground = new SolidColorBrush(Color.FromRgb(0x4E, 0xC9, 0x6F));
+                    ReviewAlertBtn.Visibility = Visibility.Collapsed;
+                }
+            }
+            else if (_currentThreatType == "Network Adapter")
+            {
+                string msg = $"Active Adapter Detected: {_currentThreatDetails}\n\n" +
+                             "This adapter might be used for unauthorized tunneling or kernel debugging.\n\n" +
+                             "Click 'Yes' to Block & Delete (removes device and service).\n" +
+                             "Click 'No' to Whitelist (ignore this adapter permanently).\n" +
+                             "Click 'Cancel' to ignore for now.";
+                             
+                var result = MessageBox.Show(msg, "Review Network Adapter", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+                if (result == MessageBoxResult.Yes)
+                {
+                    _enforcer.MitigateAdapter(_currentThreatDetails);
+                    ThreatAlertText.Text = "✓ Adapter mitigated.";
+                    ThreatAlertText.Foreground = new SolidColorBrush(Color.FromRgb(0x4E, 0xC9, 0x6F));
+                    ReviewAlertBtn.Visibility = Visibility.Collapsed;
+                }
+                else if (result == MessageBoxResult.No)
+                {
+                    if (_currentThreatDetails.Contains("SSTP")) SecurityEnforcer.IsSstpAllowed = true;
+                    if (_currentThreatDetails.Contains("Kernel Debug")) SecurityEnforcer.IsKernelDebugAllowed = true;
+                    ThreatAlertText.Text = "✓ Adapter whitelisted.";
+                    ThreatAlertText.Foreground = new SolidColorBrush(Color.FromRgb(0x4E, 0xC9, 0x6F));
+                    ReviewAlertBtn.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                MessageBox.Show($"{_currentThreatType}\n\n{_currentThreatDetails}", "Security Alert", MessageBoxButton.OK, MessageBoxImage.Information);
+                ReviewAlertBtn.Visibility = Visibility.Collapsed;
+            }
+        }
+
+
+        private void OnEnforcerStatusChanged(string status, string colorType)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                EnforcerStatusText.Text = $"Security Enforcer: {status}";
+                EnforcerDot.Fill = colorType switch
+                {
+                    "Red" => new SolidColorBrush(Color.FromRgb(0xE5, 0x53, 0x4B)),
+                    "Amber" => new SolidColorBrush(Color.FromRgb(0xE5, 0xA6, 0x31)),
+                    _ => new SolidColorBrush(Color.FromRgb(0x4E, 0xC9, 0x6F))
+                };
+            });
+        }
+
+        private void OnDriftDetected(List<string> driftItems)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ThreatAlertText.Text = $"⚠ Firewall drift detected: {driftItems.Count} rule(s) changed";
+                ThreatAlertText.Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xA6, 0x31));
+            });
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _enforcer?.Stop();
+            _trayNotifier?.Dispose();
+
+            // Stop the shared capture FIRST so live flows finalize into the
+            // aggregator, then persist that final state. (Content Unloaded
+            // events fire after OnClosed, so tab-level Release may follow —
+            // Stop is idempotent.)
+            Services.TcpStreamCaptureService.Shared.Stop();
+            Services.TrafficAggregationService.Shared.Shutdown();
+            // Transmissions pipeline drains what the capture flush finalized
+            // (up to its 3s budget), then releases its capture reference.
+            Services.TransmissionsPipelineService.Shared.Stop();
+
+            // Layer 3 must never outlive the app: stop restores the system
+            // proxy, removes the QUIC block rule and untrusts the CA.
+            Services.InterceptProxyService.Shared.StopSession("app exit");
+
+            Services.TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
+            base.OnClosed(e);
+        }
+
+        // ── Emergency internet restore (panic button) ───────────────────────
+        //
+        // The #1 self-inflicted outage from Process Monitor blocking is blocking
+        // svchost/DNS or a Microsoft endpoint. This disables every AutoCommand-
+        // created block rule in one click — reversible, nothing deleted.
+
+        private async void RestoreInternetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var confirm = MessageBox.Show(
+                "Restore internet access?\n\n" +
+                "This DISABLES every firewall block rule AutoCommand created (IP and process\n" +
+                "blocks — including legacy ones). Nothing is deleted; re-enable all of them\n" +
+                "from Process Monitor → Blocked → Manage all.\n\n" +
+                "If this does not restore connectivity, the block came from another tool\n" +
+                "or a proxy/VPN — this button only touches AutoCommand rules.",
+                "🚑 Restore Internet", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes) return;
+
+            RestoreInternetBtn.IsEnabled = false;
+            try
+            {
+                var result = await Services.FirewallService.Instance
+                    .SetAllAutoCommandBlocksEnabledAsync(false);
+
+                // A stale DNS cache keeps sites dead even after the block is
+                // lifted — flush it automatically so recovery is one click.
+                string dnsNote;
+                try
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo("ipconfig", "/flushdns")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+                    using var p = System.Diagnostics.Process.Start(psi);
+                    p.StandardOutput.ReadToEnd();
+                    p.WaitForExit(5000);
+                    dnsNote = p.ExitCode == 0
+                        ? "The DNS cache was flushed automatically — no further steps needed."
+                        : $"ipconfig /flushdns returned exit code {p.ExitCode}; run it manually if sites still fail.";
+                }
+                catch (Exception ex)
+                {
+                    dnsNote = $"Could not flush DNS automatically ({ex.Message}); run  ipconfig /flushdns  manually.";
+                }
+
+                string extra = result.FirstError != null ? $"\nFirst error: {result.FirstError}" : "";
+                MessageBox.Show(
+                    $"Disabled {result.Changed} of {result.Matched} AutoCommand block rule(s).{extra}\n\n" +
+                    $"{dnsNote}\n\n" +
+                    "Restore options in Process Monitor → Blocked → Manage all:\n" +
+                    "  · 'Restore except Microsoft/Windows' — recommended: brings back your\n" +
+                    "    real blocks, leaves the breakage-causing ones (red rows) off\n" +
+                    "  · 'Re-enable all' — everything back on",
+                    "🚑 Restore Internet", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            finally { RestoreInternetBtn.IsEnabled = true; }
+        }
+    }
+}
+
