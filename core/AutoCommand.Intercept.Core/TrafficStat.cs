@@ -325,7 +325,9 @@ namespace AutoCommand.Models
         private static string JoinCapped(IEnumerable<int> values) =>
             values == null ? "—" : string.Join(",", values.Take(8));
 
-        internal static string FormatBytes(long bytes)
+        // public since the Intercept core extraction: the app's Traffic
+        // Patterns view shares this exact formatting
+        public static string FormatBytes(long bytes)
         {
             if (bytes < 1024) return $"{bytes}B";
             if (bytes < 1048576) return $"{bytes / 1024.0:F0}KB";

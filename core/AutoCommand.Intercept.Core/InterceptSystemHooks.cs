@@ -27,9 +27,11 @@ namespace AutoCommand.Services
     /// the machine proxied: RecoverAfterCrash() runs at every app start and
     /// undoes whatever the journal still describes.
     /// </summary>
-    internal static class InterceptSystemHooks
+    // public since the Intercept core extraction: the app calls
+    // RecoverAfterCrash() at startup
+    public static class InterceptSystemHooks
     {
-        internal const string FirewallRulePrefix = "AutoCommand Intercept QUIC block";
+        public const string FirewallRulePrefix = "AutoCommand Intercept QUIC block";
 
         private static string JournalPath => Path.Combine(InterceptCaService.Dir, "session-active.json");
 
@@ -216,7 +218,7 @@ namespace AutoCommand.Services
         /// App-start safety net: a crash mid-session leaves the journal on
         /// disk — undo everything it describes. No journal, no action.
         /// </summary>
-        internal static void RecoverAfterCrash()
+        public static void RecoverAfterCrash()
         {
             var journal = ReadJournal();
             if (journal != null)

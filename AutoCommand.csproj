@@ -32,6 +32,13 @@
          the same library - they run the shipped assembly, not a source
          copy. -->
     <ProjectReference Include="core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <!-- Intercept core (phase 2 of the AutoCommand II extraction, see
+         REWRITE.md): sniffer, stream capture, TLS decrypt/keylog/SNI,
+         loopback proxy + CA + system hooks, Sysmon connect watcher, and
+         the transmissions pipeline/archive with traffic aggregation.
+         Same rules as the NetWatch core: physical move, namespaces
+         unchanged, self-tests consume the shipped assembly. -->
+    <ProjectReference Include="core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
     <!-- The svchost capture/analysis engine, linked in-process: the app runs
          it directly instead of spawning a bundled child exe (which SmartScreen
          hard-blocks on download extracts). Vendored in-repo at svchost-watch\

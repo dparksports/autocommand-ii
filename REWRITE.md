@@ -115,6 +115,36 @@ Also new: `core/Directory.Build.props` (common settings for core\
 projects only — deliberately not at the repo root so vendored engines and
 self-test harnesses keep owning their settings).
 
+### Phase 2 — delivered: `core/AutoCommand.Intercept.Core`
+
+Extracted (19 files, namespaces unchanged): RawSocketSnifferService,
+TcpStreamCaptureService, HttpStreamDecoder, TlsDecryptor, TlsKeylogService,
+TlsSni, InterceptProxyService, InterceptCaService, InterceptSystemHooks,
+TransmissionsPipelineService, TransmissionsArchiveService,
+TransmissionsIgnoreList, TransmissionKeyService, TrafficAggregationService,
+SysmonConnectWatcherService + models TcpFlowRecord, TlsDecryptResult,
+TransmissionRecord, TrafficStat.
+
+- Intercept core references the NetWatch core (RawSocketSnifferService
+  builds SvchostMonitorItem rows) — first cross-core reference; the
+  layering is: Intercept → NetWatch → (nothing).
+- SysmonConnectWatcherService moved HERE, not to NetWatch: its phase-1
+  "cross-cluster dependencies" (ImageSpawnWatcherService,
+  TcpStreamCaptureService) turned out to be doc-comment mentions only,
+  and its one real consumer is the transmissions pipeline in this cluster.
+- Three members went internal → public to cross the assembly boundary
+  (InterceptSystemHooks + RecoverAfterCrash, TrafficStat.FormatBytes) —
+  the compiler finds these; that is the whole list.
+- PyTraceSelfTest (stream capture/keylog/decrypt + their models now from
+  the core; `reassemble` suite PASS) and SiteDoctorSelfTest
+  (TransmissionRecord from the core; ALL PASS) run against the shipped
+  assembly. NetWatchSelfTest and BitsTraceSelfTest re-run as regression:
+  both still pass.
+- Dependency-closure method worth repeating: scan candidates for
+  references to every staying service/model, skipping comment lines —
+  phase-1's comment-only false dependency is why SysmonConnectWatcher
+  waited for phase 2.
+
 ### Remaining phases
 
 Target layout (all plain `net10.0-windows` class libraries, zero WPF
@@ -123,7 +153,7 @@ references, same pattern as the existing vendored engines):
 ```
 Sdk/AutoCommand.Sdk              contracts grow: IAgentInteraction, DTOs
 core/AutoCommand.NetWatch.Core   ✔ done (phase 1, see above)
-core/AutoCommand.Intercept.Core  sniffer, TLS, proxy/CA, transmissions pipeline
+core/AutoCommand.Intercept.Core  ✔ done (phase 2, see above)
 core/AutoCommand.Contain.Core    firewall, sinkhole, blocks, Defender
 core/AutoCommand.Forensics.Core  provenance, attribution, PyTrace, Bits, traces
 core/AutoCommand.Sitedoctor.Core fingerprint, probe, verdict, dependency blocks

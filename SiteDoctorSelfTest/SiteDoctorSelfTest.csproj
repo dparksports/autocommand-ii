@@ -20,7 +20,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Models\TransmissionRecord.cs" />
+    <!-- TransmissionRecord now comes from the Intercept core library (phase
+         2 extraction, REWRITE.md); the site-doctor services stay compiled
+         here until their phase. -->
+    <ProjectReference Include="..\core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
     <Compile Include="..\Services\SiteFingerprintService.cs" />
     <Compile Include="..\Services\SiteProbeService.cs" />
     <Compile Include="..\Services\SiteVerdictService.cs" />
