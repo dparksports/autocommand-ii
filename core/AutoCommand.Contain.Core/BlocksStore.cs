@@ -350,7 +350,9 @@ namespace AutoCommand.Services
             return true;
         }
 
-        internal static string ClassForPath(string path)
+        // public since the Contain core extraction: the Blocks and Monitor
+        // views label rows with it
+        public static string ClassForPath(string path)
         {
             if (string.IsNullOrEmpty(path)) return "Application";
             string lower = path.ToLowerInvariant();

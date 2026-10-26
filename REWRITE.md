@@ -145,6 +145,29 @@ TransmissionRecord, TrafficStat.
   phase-1's comment-only false dependency is why SysmonConnectWatcher
   waited for phase 2.
 
+### Phase 3 — delivered: `core/AutoCommand.Contain.Core` (test-first)
+
+The stopping side: FirewallService + the BlocksStore undo ledger,
+AppBlockCoverage, BlockHitFeed (unblocked at last), FirewallProfile,
+TelemetryRulesService, HostsTelemetryPins, SinkholeService, the Defender
+trio, UpdateFreeze, plus leaves SvchostIdentityService and ServiceCatalog,
+and FirewallRuleItem extracted out of Models\DataModels.cs (the first
+DataModels split — the type is pure INotifyPropertyChanged, no WPF).
+
+- **Test-first, as planned**: `ContainSelfTest` (28 checks — store
+  round-trip/upsert/pause/remove/event-ledger, provenance parsing,
+  grouping keys, catalog-beats-seed + file detection + JSON state probe
+  on temp files, v2 rule-name builders) passed at the source BEFORE the
+  move, then again against the shipped assembly after. This is the app's
+  safety path (blocks, undo, Restore Internet) — the strictest-proof
+  cluster so far.
+- Layering now: Contain → Intercept → NetWatch, plus the vendored
+  SvchostAnalyzer.Core (SvchostIdentityService decodes instances).
+- `BlocksStore.ClassForPath` went internal → public (views label rows
+  with it) — the phase-2 accessibility pattern, still a tiny list.
+- Five harnesses green: NetWatch, Bits, PyTrace (reassemble), SiteDoctor,
+  Contain — all consuming shipped assemblies.
+
 ### Remaining phases
 
 Target layout (all plain `net10.0-windows` class libraries, zero WPF

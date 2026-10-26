@@ -39,6 +39,12 @@
          Same rules as the NetWatch core: physical move, namespaces
          unchanged, self-tests consume the shipped assembly. -->
     <ProjectReference Include="core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <!-- Contain core (phase 3 of the AutoCommand II extraction, see
+         REWRITE.md): firewall + blocks-store undo ledger, telemetry opt-out
+         rules and hosts pins, sinkhole receipts, Defender engines, update
+         freeze. Built test-first — ContainSelfTest proved the safety path
+         offline before the move. -->
+    <ProjectReference Include="core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
     <!-- The svchost capture/analysis engine, linked in-process: the app runs
          it directly instead of spawning a bundled child exe (which SmartScreen
          hard-blocks on download extracts). Vendored in-repo at svchost-watch\
@@ -111,6 +117,9 @@
     <!-- OneSettings cadence CLI — standalone console tool for the inbox
          OneSettings RefreshCache task, built separately (dotnet build
          OneSettingsCadence\OneSettingsCadence.csproj); own Main() -->
+    <!-- Contain self-test: the blocking/safety path — built test-first,
+         before the phase 3 extraction (REWRITE.md); own Main() -->
+    <Compile Remove="ContainSelfTest\**" />
     <Compile Remove="OneSettingsCadence\**" />
     <!-- Extracted core engines (AutoCommand II phases, REWRITE.md): built
          through their own ProjectReferences — same glob reason as
