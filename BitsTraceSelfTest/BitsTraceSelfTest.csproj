@@ -17,16 +17,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- BITS-cluster sources still compiled here directly (they leave for a
+         core of their own in a later phase). The NetWatch engines they
+         build on — IpClassifier, RdapService, DnsResolutionService,
+         IResolvableHost — now come from the NetWatch core library
+         (phase 1 extraction, REWRITE.md), so this harness exercises the
+         shipped assembly for those instead of a source copy. -->
+    <ProjectReference Include="..\core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
     <Compile Include="..\Services\BitsWatcherService.cs" />
     <Compile Include="..\Services\BitsReasonCatalog.cs" />
     <Compile Include="..\Services\BitsFirewallContextService.cs" />
-    <Compile Include="..\Services\IpClassifier.cs" />
-    <Compile Include="..\Services\RdapService.cs" />
-    <Compile Include="..\Services\DnsResolutionService.cs" />
     <Compile Include="..\Helpers\AuthenticodeVerifier.cs" />
     <Compile Include="..\Models\BitsJobItem.cs" />
     <Compile Include="..\Models\BitsJobStat.cs" />
-    <Compile Include="..\Models\IResolvableHost.cs" />
   </ItemGroup>
 
 </Project>

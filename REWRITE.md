@@ -76,12 +76,53 @@ SvchostMonitorView row pipeline, TracesView card refresh.
 
 ## Phases 1+ — core engine extraction (the structural rewrite)
 
+### Phase 1 — delivered: `core/AutoCommand.NetWatch.Core`
+
+Extracted (physically moved, namespaces deliberately unchanged —
+`AutoCommand.Services` / `.Helpers` / `.Models` — so every consumer compiled
+without edits):
+
+- Services: TcpConnectionTable, IpClassifier, DnsResolutionService,
+  RdapService, SysmonArchiveService, SysmonDiagnosticsService,
+  SysmonInstallerService, SysmonProcessAuditService, SysmonWatcherService,
+  ProcessGlossary
+- Helpers: ProcessRunner
+- Models: SvchostMonitorItem, IResolvableHost
+
+Consumers now on the library: the app (ProjectReference),
+NetWatchSelfTest (was: source-copying + a FrameworkReference hack — both
+gone; ALL CHECKS PASSED against the shipped assembly, including the live
+IPv6 loopback enumeration), BitsTraceSelfTest (IpClassifier/Rdap/Dns/
+IResolvableHost now from the core; BITS-cluster sources still compiled
+locally until their phase).
+
+Deliberately NOT extracted yet (cross-cluster dependencies, move with
+their clusters): SysmonConnectWatcherService (needs ImageSpawnWatcherService
+— Forensics, and TcpStreamCaptureService — Intercept), BlockHitFeedService
+(needs FirewallService — Contain).
+
+**Lesson every future phase must repeat** (cost an afternoon here): a new
+ProjectReference to a directory under the repo root is not enough — the
+app's default Compile glob silently pulls the new core's `.cs` files into
+the app assembly next to the ProjectReference (the repo already fought
+this for svchost-watch/AgentProxy). Every extracted core needs its
+matching `<Compile Remove="core\**" />` (already in AutoCommand.csproj for
+the whole core\ tree — future cores under core\ inherit it for free).
+Symptom when forgotten: the WPF _wpftmp markup pass fails with CS0579
+duplicate-attribute errors that look like a versioning bug and are not.
+
+Also new: `core/Directory.Build.props` (common settings for core\
+projects only — deliberately not at the repo root so vendored engines and
+self-test harnesses keep owning their settings).
+
+### Remaining phases
+
 Target layout (all plain `net10.0-windows` class libraries, zero WPF
 references, same pattern as the existing vendored engines):
 
 ```
 Sdk/AutoCommand.Sdk              contracts grow: IAgentInteraction, DTOs
-core/AutoCommand.NetWatch.Core   TcpConnectionTable, IpClassifier, Dns*, Rdap, Sysmon*
+core/AutoCommand.NetWatch.Core   ✔ done (phase 1, see above)
 core/AutoCommand.Intercept.Core  sniffer, TLS, proxy/CA, transmissions pipeline
 core/AutoCommand.Contain.Core    firewall, sinkhole, blocks, Defender
 core/AutoCommand.Forensics.Core  provenance, attribution, PyTrace, Bits, traces
