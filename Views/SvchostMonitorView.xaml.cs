@@ -164,6 +164,10 @@ namespace AutoCommand.Views
             _blockStateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
             _blockStateTimer.Tick += (s, args) => _ = RefreshBlockStateFromFirewallAsync();
             _blockStateTimer.Start();
+            // firewall-inventory snapshot read — pause the 60 s poll while
+            // this tab is hidden; rows pick their block marks up on the
+            // first tick after the tab is shown again
+            RefreshLoop.GateVisibility(this, () => _blockStateTimer);
 
             _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6.5) };
             _toastTimer.Tick += (s, args) => HideToast();

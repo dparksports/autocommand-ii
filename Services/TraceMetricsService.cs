@@ -133,6 +133,31 @@ namespace AutoCommand.Services
             public string RowMetrics { get; set; }
             public List<BarVM> Bars { get; set; } = new();
             public List<DestSummary> Destinations { get; set; } = new();
+
+            // ── value equality for ListSync: a card that renders identically
+            // to the previous pass is treated as unchanged, so its row (and
+            // the user's selection on it) is never regenerated. `What` is
+            // deliberately excluded — it is an action handle rebuilt from
+            // the same key every pass, not display state; ServiceKey already
+            // carries the identity.
+            public override bool Equals(object obj) => obj is TraceCardVM other && Equals(other);
+
+            private bool Equals(TraceCardVM o) =>
+                Title == o.Title && ChipProcess == o.ChipProcess && ChipImpact == o.ChipImpact &&
+                ChipImpactKind == o.ChipImpactKind && Story == o.Story && MetricsLine == o.MetricsLine &&
+                BytesLine == o.BytesLine && DestinationsLine == o.DestinationsLine &&
+                BeaconLine == o.BeaconLine && IdentityLine == o.IdentityLine &&
+                VerdictText == o.VerdictText && VerdictKind == o.VerdictKind &&
+                ReceiptsLine == o.ReceiptsLine && Footnote == o.Footnote &&
+                ServiceKey == o.ServiceKey && CanQuiet == o.CanQuiet && IsQuieted == o.IsQuieted &&
+                ConnectsPerHour == o.ConnectsPerHour && BeaconRegular == o.BeaconRegular &&
+                RowMetrics == o.RowMetrics &&
+                TopDestIps.SequenceEqual(o.TopDestIps) &&
+                Destinations.Select(d => d.Display).SequenceEqual(o.Destinations.Select(d => d.Display)) &&
+                Bars.Select(b => (b.Height, b.Label)).SequenceEqual(o.Bars.Select(b => (b.Height, b.Label)));
+
+            public override int GetHashCode() =>
+                HashCode.Combine(Title ?? "", ServiceKey ?? "", MetricsLine ?? "", ConnectsPerHour, IsQuieted);
         }
 
         public static Snapshot Compute(Match what, int hours = 24)
