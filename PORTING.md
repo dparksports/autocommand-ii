@@ -13,7 +13,8 @@ original master @ that date.
 
 | Upstream change | Status | Where it landed here |
 |---|---|---|
-| urgent-RDAP feature (uncommitted in original working tree, +425 lines: `RdapService` rewrite + `BlockedRulesWindow` caller) | **QUEUED — port when it lands upstream** | `core/AutoCommand.NetWatch.Core/RdapService.cs` + `Views/BlockedRulesWindow.xaml.cs`. Mirrored edits were mistakenly applied to this repo on 2026-10-27 and removed (commit 2b9c8ef note); the original's own copy was left untouched. Port after the original commits it. |
+| `638766c` RdapService: IANA-bootstrap routing + throttle-aware pacing (stop the rdap.org hammering; 429/503 cooldowns honoring Retry-After, negative-caching per prefix, RFC 1918 answered locally, User-Agent politeness) | **PORTED 2026-10-27** (this was the previously-mirrored urgent-RDAP work, now properly committed upstream in v2026.10.25.4) | `core/AutoCommand.NetWatch.Core/RdapService.cs` (file taken wholesale from `638766c`) + `Views/BlockedRulesWindow.xaml.cs` caller (`urgent: true`). App + Bits/NetWatch/Contain harnesses green. |
+| urgent-RDAP feature follow-ups (anything newer than `638766c` in `RdapService`/`BlockedRulesWindow`) | open — still uncommitted in the original working tree | port when committed upstream |
 
 ## How to port
 

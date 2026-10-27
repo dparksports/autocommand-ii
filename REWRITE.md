@@ -233,6 +233,25 @@ TraceProjectStore + TraceProject — namespaces unchanged.
 
 ### The rewrite's structural work is complete
 
+#### Iteration: deferred items resolved (2026-10-27)
+
+- **View conversions — CLOSED, not deferred**: a fresh survey found the
+  phase-0 concern had already collapsed. TransmissionsView — flagged as the
+  highest-payoff conversion — is already event-driven incremental
+  (ObservableCollection adds with a row cap; the ItemsSource hits are a
+  filter dropdown). Every repeating timer is now visibility-gated, self-
+  gating via Loaded/Unloaded, or on the documented do-not-gate list.
+  Remaining hand-rolled poll blocks (TracesView's card) are dedup-only,
+  convert opportunistically.
+- **Upstream sync window 2**: ported `638766c` (RdapService IANA-bootstrap
+  + throttle pacing) into the NetWatch core — see PORTING.md.
+- **Namespace migration — DECIDED: keep deferred.** It would touch every
+  using line across ~50 app files, making every future upstream port a
+  merge conflict on namespace lines. The current shared namespaces are the
+  compatibility feature that makes porting near-free. Revisit only if the
+  original archives.
+- **Singleton→DI — see the BlocksLedger pilot below (iteration B).
+
 #### Deliberately deferred (cosmetic or behavior-adjacent; do NOT block on them)
 
 - Namespace migration to AutoCommand.<Core>.* (mechanical; do per-cluster
