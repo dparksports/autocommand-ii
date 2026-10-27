@@ -318,6 +318,26 @@ Check("app match: sibling path by exe name",
 Check("app match: different exe never matches",
       !BlockContainmentVerifier.IsAppBlockMatch(cApp, @"C:\Tools\upd2.exe"));
 
+// WorstForTarget — the Blocks tab's per-row roll-up
+var cInsts = new List<BlockContainmentVerifier.Instance>
+{
+    new() { Image = @"C:\Tools\chrome.exe", Pid = 100, Verdict = BlockContainmentVerifier.Contained,
+            BlockedIps = new() { "1.2.3.4" } },
+    new() { Image = @"C:\Tools\upd.exe", Pid = 200, Verdict = BlockContainmentVerifier.Leak,
+            BlockedIps = new() { "1.2.3.4" } },
+    new() { Image = @"C:\Tools\upd.exe", Pid = 210, Verdict = BlockContainmentVerifier.StaleFlow,
+            BlockedIps = new() { "5.6.7.8" } },
+};
+var cW1 = BlockContainmentVerifier.WorstForTarget(cInsts, "ip", "1.2.3.4");
+Check("roll-up: leak outranks contained for the same IP",
+      cW1 != null && cW1.Verdict == BlockContainmentVerifier.Leak && cW1.Pid == 200,
+      cW1?.Verdict ?? "null");
+var cW2 = BlockContainmentVerifier.WorstForTarget(cInsts, "proc", @"C:\Tools\v2\upd.exe");
+Check("roll-up: app target matches sibling path by basename",
+      cW2 != null && cW2.Verdict == BlockContainmentVerifier.Leak, cW2?.Verdict ?? "null");
+Check("roll-up: untouched target is quiet (null)",
+      BlockContainmentVerifier.WorstForTarget(cInsts, "ip", "9.9.9.9") == null);
+
 Console.WriteLine();
 Console.WriteLine(failures == 0 ? "ALL CONTAIN SELF-TESTS PASSED" : $"{failures} CHECK(S) FAILED");
 return failures == 0 ? 0 : 1;

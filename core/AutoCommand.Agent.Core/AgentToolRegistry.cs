@@ -708,66 +708,27 @@ namespace AutoCommand.Services
         /// The containment proof — one call instead of a list_blocks ×
         /// get_monitor_rows × get_transmissions choreography with timestamp
         /// math the caller would have to get right. BlockContainmentVerifier
-        /// holds the join; this handler gathers the live inputs.
+        /// holds the join; BlockContainmentReader gathers the live inputs,
+        /// shared with the Blocks tab's containment column so the two views
+        /// cannot disagree.
         /// </summary>
         private static string VerifyBlockContainment(JsonObject a)
         {
             int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 60, 1, 1440);
             string contains = a["contains"]?.GetValue<string>();
-            EnsureFeedStarted();
+
+            // The same gatherer the Blocks tab's containment column uses —
+            // screen and AI share one join, so they can never disagree.
+            var snap = BlockContainmentReader.Take(minutes);
             var feed = BlockHitFeedService.Instance;
-            var inv = FirewallService.Instance.GetBlockedInventoryAsync().GetAwaiter().GetResult();
+            var inv = snap.Inventory;
 
-            var aggs = feed.Aggregates(minutes, 200);
+            var instances = snap.Instances;
             if (!string.IsNullOrEmpty(contains))
-                aggs = aggs.Where(x =>
-                    (x.Process?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (x.Image?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (x.DestIp?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-
-            // Kernel sockets first, owner identity second — the snapshot
-            // ordering rule, so a pid reused in between can't attach the
-            // previous owner's start time to a live socket row.
-            var conns = TcpConnectionTable.GetEstablished();
-            var owners = new Dictionary<int, (string Name, DateTime? StartedUtc)>();
-            try
-            {
-                using var s = new ManagementObjectSearcher(
-                    "SELECT ProcessId, Name, CreationDate FROM Win32_Process");
-                foreach (ManagementObject o in s.Get())
-                {
-                    DateTime? started = null;
-                    try
-                    {
-                        if (o["CreationDate"] is string dmtf && dmtf.Length > 0)
-                            started = ManagementDateTimeConverter.ToDateTime(dmtf).ToUniversalTime();
-                    }
-                    catch { /* unreadable date — the name still joins */ }
-                    owners[Convert.ToInt32(o["ProcessId"])] = (o["Name"]?.ToString() ?? "?", started);
-                }
-            }
-            catch { /* WMI down — sockets join by pid with unknown start times */ }
-
-            var sockets = conns.Select(c =>
-            {
-                owners.TryGetValue(c.Pid, out var owner);
-                return new BlockContainmentVerifier.LiveSocket
-                {
-                    Pid = c.Pid,
-                    RemoteIp = c.RemoteIp,
-                    RemotePort = c.RemotePort,
-                    ProcessName = owner.Name,
-                    ProcessStartedUtc = owner.StartedUtc,
-                };
-            }).ToList();
-
-            // Archive read bounded by the oldest block provenance; the
-            // verifier applies the per-instance t0 on top of this.
-            DateTime since = inv.Where(t => t.Created.HasValue).Select(t => t.Created.Value)
-                                .DefaultIfEmpty(DateTime.UtcNow.AddMinutes(-minutes)).Min();
-            var flows = TransmissionsArchiveService.Read(200, null, null, since);
-
-            var instances = BlockContainmentVerifier.Evaluate(aggs, inv, sockets, flows);
+                instances = instances.Where(i =>
+                    (i.Process?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (i.Image?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    i.BlockedIps.Any(ip => ip.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
 
             // Quiet roll-up: enabled blocks nothing is hitting. App matches
             // reuse the verifier's rule so the two views can't disagree.
@@ -840,6 +801,7 @@ namespace AutoCommand.Services
                               "Sockets carry no creation time: 'predates the block' means the owning process " +
                               "started before the rule was created — the honest bound the kernel table gives.",
                 ["inventory_refreshed_utc"] = feed.LastRefreshUtc == default ? null : feed.LastRefreshUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                ["feed_note"] = string.IsNullOrEmpty(snap.Note) ? null : snap.Note,
             });
         }
 

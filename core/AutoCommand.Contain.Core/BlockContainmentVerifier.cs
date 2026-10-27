@@ -87,6 +87,32 @@ namespace AutoCommand.Services
             sockets.Any(s => s.Pid == inst.Pid && s.ProcessStartedUtc.HasValue &&
                              s.ProcessStartedUtc.Value <= inst.T0);
 
+        /// <summary>
+        /// Worst instance a target is responsible for — the Blocks tab's
+        /// per-row roll-up. storeKind is the BlocksStore kind ("ip" or
+        /// "proc"), key the IP or the full image path. Null when no instance
+        /// touched the target in this snapshot (quiet).
+        /// </summary>
+        public static Instance WorstForTarget(List<Instance> instances, string storeKind, string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            Instance worst = null;
+            foreach (var i in instances)
+            {
+                bool match = storeKind == "ip"
+                    ? i.BlockedIps.Any(b => string.Equals(b, key, StringComparison.OrdinalIgnoreCase))
+                    : string.Equals(i.Image, key, StringComparison.OrdinalIgnoreCase) ||
+                      string.Equals(Path.GetFileName(i.Image ?? ""), Path.GetFileName(key),
+                          StringComparison.OrdinalIgnoreCase);
+                if (!match) continue;
+                if (worst == null || Rank(i) > Rank(worst)) worst = i;
+            }
+            return worst;
+        }
+
+        private static int Rank(Instance i) =>
+            i.Verdict == Leak ? 2 : i.Verdict == StaleFlow ? 1 : 0;
+
         public static List<Instance> Evaluate(
             List<BlockHitFeedService.HitAggregate> hits,
             List<FirewallService.BlockedTarget> inventory,
