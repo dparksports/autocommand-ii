@@ -30,6 +30,15 @@ namespace AutoCommand.Services
     /// only joins when its image name matches. A reused pid is flagged,
     /// never accused.
     ///
+    /// Known limit (deliberate, documented): ATTEMPTS are grouped by
+    /// pid + image only. If a pid is reused while the hit-feed window still
+    /// contains the previous instance's attempts, both processes' attempts
+    /// merge into one instance (shared t0, summed count). The socket and
+    /// archive joins keep their start-time/name guards, so this can only
+    /// overcount attempts — it cannot turn a contained instance into a
+    /// leak. With a 200-aggregate feed window this needs a reuse inside
+    /// the look-back minutes to matter.
+    ///
     /// Pure logic over plain rows — the bridge handler feeds it live data,
     /// ContainSelfTest feeds it synthetic rows. No I/O, no elevation.
     /// </summary>
@@ -112,6 +121,26 @@ namespace AutoCommand.Services
 
         private static int Rank(Instance i) =>
             i.Verdict == Leak ? 2 : i.Verdict == StaleFlow ? 1 : 0;
+
+        /// <summary>Enabled blocks no instance touched in this snapshot —
+        /// the quiet roll-up, owned HERE so the bridge tool and any future
+        /// consumer apply one rule (the same reason IsAppBlockMatch is
+        /// public). Disabled/paused rules are never listed: nothing to
+        /// verify. The caller supplies presentation (JSON, rows).</summary>
+        public static List<FirewallService.BlockedTarget> QuietTargets(
+            List<FirewallService.BlockedTarget> inventory, List<Instance> instances)
+        {
+            var hitIps = instances.SelectMany(i => i.BlockedIps)
+                                  .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hitImages = instances.Select(i => i.Image).ToList();
+            return inventory.Where(t => t.EnabledRules > 0 && !Referenced(t, hitIps, hitImages)).ToList();
+        }
+
+        private static bool Referenced(FirewallService.BlockedTarget t,
+                                       HashSet<string> hitIps, List<string> hitImages) =>
+            t.Kind == "ip"
+                ? hitIps.Contains(t.Ip)
+                : hitImages.Any(img => IsAppBlockMatch(t, img));
 
         public static List<Instance> Evaluate(
             List<BlockHitFeedService.HitAggregate> hits,

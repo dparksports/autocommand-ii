@@ -319,3 +319,18 @@ Rules of the road:
 - No MVVM framework adoption, no public renames, no behavior changes: views
   keep their code-behind; the payoff is testability, headless hosting, and
   self-tests as real library consumers.
+
+## Post-rewrite iterations log
+
+- **v0.7.0 / v2026.10.27.7** — first upstream port through the PORTING.md
+  window (RdapService IANA-bootstrap + throttle pacing); deferred items
+  resolved (view conversions closed by re-survey; namespace migration
+  keep-deferred). Followed by the parallel session's containment feature
+  (verify_block_containment + Blocks-tab column) landing in the same
+  version window.
+- **v0.8.0** — BlocksLedger DI pilot (constructor-injected storage, static
+  facade unchanged, the DataDirectory ordering trap removed).
+- **v0.9.0 / v2026.10.27.9** — containment review follow-ups: Take()
+  fails fast on UI threads, QuietTargets rule moved into the engine,
+  attempt-conflation limit documented at the source. Contain suite at 48
+  checks.

@@ -29,8 +29,24 @@ namespace AutoCommand.Services
             public string Note = "";   // feed/inventory errors, surfaced by both consumers
         }
 
+        /// <summary>
+        /// Gathers the four live inputs and runs the join. BLOCKS on the
+        /// caller's thread (inventory fetch, full Win32_Process scan, archive
+        /// read — hundreds of ms on a busy box), so it must run OFF the UI
+        /// thread: it blocks on a task with SynchronizationContext-continuation
+        /// semantics, and a direct UI-thread call would deadlock. Callers on
+        /// a UI thread: `await Task.Run(() => Take(...))` (what the Blocks
+        /// tab does) — this fails fast with a clear message instead of
+        /// hanging. Handlers on the bridge's background threads call it
+        /// directly.
+        /// </summary>
         public static Snapshot Take(int minutes = 60)
         {
+            if (System.Threading.SynchronizationContext.Current != null)
+                throw new InvalidOperationException(
+                    "BlockContainmentReader.Take blocks and must not run on a UI thread — " +
+                    "call it via Task.Run from UI code.");
+
             var snap = new Snapshot { TakenUtc = DateTime.UtcNow };
 
             // Idempotent — every containment reader keeps the feed alive,

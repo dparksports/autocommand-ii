@@ -746,26 +746,20 @@ namespace AutoCommand.Services
                     (i.Image?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
                     i.BlockedIps.Any(ip => ip.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
 
-            // Quiet roll-up: enabled blocks nothing is hitting. App matches
-            // reuse the verifier's rule so the two views can't disagree.
-            var hitIps = instances.SelectMany(i => i.BlockedIps)
-                                  .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var hitImages = instances.Select(i => i.Image).ToList();
+            // Quiet roll-up: enabled blocks nothing is hitting — the rule
+            // lives in the verifier (QuietTargets) so every consumer of the
+            // containment join agrees on what "quiet" means.
             var quiet = new JsonArray();
-            foreach (var t in inv.Where(t => t.EnabledRules > 0))
+            foreach (var t in BlockContainmentVerifier.QuietTargets(inv, instances))
             {
-                bool referenced = t.Kind == "ip"
-                    ? hitIps.Contains(t.Ip)
-                    : hitImages.Any(img => BlockContainmentVerifier.IsAppBlockMatch(t, img));
-                if (!referenced)
-                    quiet.Add(new JsonObject
-                    {
-                        ["target"] = t.Target,
-                        ["kind"] = t.Kind,
-                        ["rules"] = $"{t.EnabledRules}/{t.Rules} enabled",
-                        ["created"] = t.Created?.ToString("yyyy-MM-dd HH:mm") ?? "legacy",
-                        ["state"] = "quiet",
-                    });
+                quiet.Add(new JsonObject
+                {
+                    ["target"] = t.Target,
+                    ["kind"] = t.Kind,
+                    ["rules"] = $"{t.EnabledRules}/{t.Rules} enabled",
+                    ["created"] = t.Created?.ToString("yyyy-MM-dd HH:mm") ?? "legacy",
+                    ["state"] = "quiet",
+                });
             }
 
             var arr = new JsonArray();

@@ -338,6 +338,22 @@ Check("roll-up: app target matches sibling path by basename",
 Check("roll-up: untouched target is quiet (null)",
       BlockContainmentVerifier.WorstForTarget(cInsts, "ip", "9.9.9.9") == null);
 
+// QuietTargets — the engine-owned quiet roll-up (the rule the bridge tool
+// applies; disabled rules are never listed because there is nothing to verify)
+var qInv = new List<FirewallService.BlockedTarget>
+{
+    new() { Target = "5.6.7.8", Kind = "ip", Ip = "5.6.7.8", Rules = 2, EnabledRules = 2 },
+    new() { Target = "9.9.9.9", Kind = "ip", Ip = "9.9.9.9", Rules = 2, EnabledRules = 2 },
+    new() { Target = @"C:\Tools\upd.exe", Kind = "app", AppPath = @"C:\Tools\upd.exe", Rules = 1, EnabledRules = 1 },
+    new() { Target = "7.7.7.7", Kind = "ip", Ip = "7.7.7.7", Rules = 2, EnabledRules = 0 }, // paused
+};
+var quietTargets = BlockContainmentVerifier.QuietTargets(qInv, cInsts);
+Check("quiet: hit ip is not quiet", quietTargets.All(t => t.Ip != "5.6.7.8"));
+Check("quiet: app-blocked image (sibling path) is not quiet",
+      quietTargets.All(t => !BlockContainmentVerifier.IsAppBlockMatch(t, @"C:\Tools\v2\upd.exe")));
+Check("quiet: untouched enabled ip is quiet; paused rule never listed",
+      quietTargets.Any(t => t.Ip == "9.9.9.9") && quietTargets.All(t => t.Ip != "7.7.7.7"));
+
 Console.WriteLine();
 Console.WriteLine(failures == 0 ? "ALL CONTAIN SELF-TESTS PASSED" : $"{failures} CHECK(S) FAILED");
 return failures == 0 ? 0 : 1;
