@@ -250,7 +250,28 @@ TraceProjectStore + TraceProject — namespaces unchanged.
   merge conflict on namespace lines. The current shared namespaces are the
   compatibility feature that makes porting near-free. Revisit only if the
   original archives.
-- **Singleton→DI — see the BlocksLedger pilot below (iteration B).
+- **Singleton→DI — see the BlocksLedger pilot below (iteration B).**
+
+#### Iteration: the DI pilot — `BlocksLedger` (2026-10-27)
+
+`BlocksStore` — the safety path's undo ledger — is now TWO things in one
+file: `BlocksLedger`, an instance class whose storage location is
+**constructor-injected** (plus a parameterless constructor using the
+default %LOCALAPPDATA% path), and the unchanged static `BlocksStore`
+facade forwarding to one default instance. Every app call site is
+untouched; `ContainSelfTest` now constructs its own ledger outright —
+the old `BlocksStore.DataDirectory = ... // redirect BEFORE first use`
+ordering trap is GONE, and a test can hold two ledgers side by side.
+
+This is the template for converting any remaining static surface, in
+this order of value: instance core first, constructor-injected
+dependencies, static facade for compatibility, tests migrate to owned
+instances. The next candidates, only when a real need appears:
+`TlsKeylogService.DirOverride` (the last settable global) and
+`TraceProjectStore`. A DI container is deliberately NOT introduced —
+with single-instance semantics and one composition point per face
+(App.OnStartup, AgentHost.Program), a container would add ceremony
+without removing any coupling.
 
 #### Deliberately deferred (cosmetic or behavior-adjacent; do NOT block on them)
 

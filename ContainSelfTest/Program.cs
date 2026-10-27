@@ -31,81 +31,84 @@ void Check(string name, bool pass, string evidence = "")
 string storeDir = Path.Combine(Path.GetTempPath(), "contain-selftest-" + Guid.NewGuid().ToString("N"));
 try
 {
-    BlocksStore.DataDirectory = storeDir;   // redirect BEFORE first use
-    BlocksStore.Load();
-    Check("empty store starts empty", BlocksStore.Records.Count == 0);
+    // DI pilot payoff: the ledger's storage location is constructor-
+    // injected — no global static to redirect, no "set DataDirectory
+    // BEFORE first use" ordering trap. This test owns its ledger outright.
+    var store = new BlocksLedger(storeDir);
+    store.Load();
+    Check("empty store starts empty", store.Records.Count == 0);
 
-    BlocksStore.AddOrUpdate(new BlockRecord
+    store.AddOrUpdate(new BlockRecord
     {
         Kind = "ip", Key = "1.2.3.4", ProcessName = "chrome.exe",
         ClassAtBlock = "Application", Origin = "blocks-tab",
     }, origin: "selftest");
-    BlocksStore.AddOrUpdate(new BlockRecord
+    store.AddOrUpdate(new BlockRecord
     {
         Kind = "ip", Key = "5.6.7.8", ProcessName = "svchost.exe",
         ServiceKey = "diagtrack", SvcDisplayName = "Connected User Experiences and Telemetry",
         ClassAtBlock = "Microsoft", Origin = "monitor",
     }, origin: "selftest");
-    BlocksStore.AddOrUpdate(new BlockRecord
+    store.AddOrUpdate(new BlockRecord
     {
         Kind = "proc", Key = @"c:\tools\upd.exe", ProcessName = "upd.exe",
         ClassAtBlock = "Application", Origin = "blocks-tab",
     }, origin: "selftest");
-    Check("three adds → three records", BlocksStore.Records.Count == 3,
-          $"count={BlocksStore.Records.Count}");
+    Check("three adds → three records", store.Records.Count == 3,
+          $"count={store.Records.Count}");
 
     // upsert: same kind+key refreshes in place, never duplicates
-    BlocksStore.AddOrUpdate(new BlockRecord
+    store.AddOrUpdate(new BlockRecord
     {
         Kind = "ip", Key = "1.2.3.4", ProcessName = "chrome.exe",
         ClassAtBlock = "Akamai (MS CDN)", Origin = "repair",
     }, origin: "selftest");
-    Check("re-block same key upserts (still 3)", BlocksStore.Records.Count == 3);
+    Check("re-block same key upserts (still 3)", store.Records.Count == 3);
     Check("upsert refreshed the classifier snapshot",
-          BlocksStore.Records.First(r => r.Key == "1.2.3.4").ClassAtBlock == "Akamai (MS CDN)");
+          store.Records.First(r => r.Key == "1.2.3.4").ClassAtBlock == "Akamai (MS CDN)");
 
     // pause semantics: rules off, record kept
-    BlocksStore.SetStatus("ip", "5.6.7.8", "off", origin: "selftest");
+    store.SetStatus("ip", "5.6.7.8", "off", origin: "selftest");
     Check("pause keeps the record with Status=off",
-          BlocksStore.Records.First(r => r.Key == "5.6.7.8").Status == "off");
+          store.Records.First(r => r.Key == "5.6.7.8").Status == "off");
 
     // persistence round-trip: a fresh process state reloads from disk
-    BlocksStore.Load();
-    Check("reload from disk keeps 3 records", BlocksStore.Records.Count == 3,
-          $"count={BlocksStore.Records.Count}");
-    Check("reload keeps the pause", BlocksStore.Records.First(r => r.Key == "5.6.7.8").Status == "off");
-    Check("store file exists", File.Exists(BlocksStore.StorePath), BlocksStore.StorePath);
+    store.Load();
+    Check("reload from disk keeps 3 records", store.Records.Count == 3,
+          $"count={store.Records.Count}");
+    Check("reload keeps the pause", store.Records.First(r => r.Key == "5.6.7.8").Status == "off");
+    Check("store file exists", File.Exists(store.StorePath), store.StorePath);
 
     // the event ledger the Blocks tab shows
-    Check("event log recorded adds", File.Exists(BlocksStore.EventLogPath) &&
-          File.ReadAllLines(BlocksStore.EventLogPath).Count(l => l.Contains("1.2.3.4")) >= 2);
+    Check("event log recorded adds", File.Exists(store.EventLogPath) &&
+          File.ReadAllLines(store.EventLogPath).Count(l => l.Contains("1.2.3.4")) >= 2);
 
     // remove
-    BlocksStore.Remove("proc", @"c:\tools\upd.exe", origin: "selftest");
-    Check("remove drops the record", BlocksStore.Records.Count == 2 &&
-          BlocksStore.Records.All(r => r.Kind != "proc"));
+    store.Remove("proc", @"c:\tools\upd.exe", origin: "selftest");
+    Check("remove drops the record", store.Records.Count == 2 &&
+          store.Records.All(r => r.Kind != "proc"));
 
     // provenance parser: what block rules carry in their description
     Check("provenance: svchost label parses to service key",
-          BlocksStore.TryParseServiceFromDescription(
+          store.TryParseServiceFromDescription(
               "[blocked 2026-10-25 10:00 UTC] svchost.exe [Connected User Experiences and Telemetry]",
               out string svcKey, out string svcDisplay) &&
           svcKey == "connected user experiences and telemetry",
           $"key='{svcKey}'");
     Check("provenance: '+2 more' collapses to the primary service",
-          BlocksStore.TryParseServiceFromDescription(
+          store.TryParseServiceFromDescription(
               "[blocked x] svchost.exe [DiagTrack+2 more]", out string k2, out _) &&
           k2 == "diagtrack", $"key='{k2}'");
     Check("provenance: non-svchost process rejected",
-          !BlocksStore.TryParseServiceFromDescription("[blocked x] chrome.exe [Whatever]", out _, out _));
+          !store.TryParseServiceFromDescription("[blocked x] chrome.exe [Whatever]", out _, out _));
     Check("provenance: 'no service' rejected",
-          !BlocksStore.TryParseServiceFromDescription("[blocked x] svchost.exe [no service]", out _, out _));
+          !store.TryParseServiceFromDescription("[blocked x] svchost.exe [no service]", out _, out _));
     Check("provenance: garbage rejected",
-          !BlocksStore.TryParseServiceFromDescription("plain description", out _, out _));
+          !store.TryParseServiceFromDescription("plain description", out _, out _));
 
     // grouping: the Blocks tab groups rows by service identity
     Check("group key: ip rows group by service key",
-          BlocksStore.ServiceGroupKey(BlocksStore.Records.First(r => r.Key == "5.6.7.8")) == "diagtrack");
+          store.ServiceGroupKey(store.Records.First(r => r.Key == "5.6.7.8")) == "diagtrack");
 }
 finally
 {
