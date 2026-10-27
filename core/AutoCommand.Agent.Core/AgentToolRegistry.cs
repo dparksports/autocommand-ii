@@ -136,6 +136,21 @@ namespace AutoCommand.Services
                 a => ListRecentBlockHits(a)),
 
             new Tool(
+                "verify_block_containment",
+                "Prove blocked processes are actually silent, not just still trying: Sysmon-attributed block " +
+                "attempts (EID 3 logs the attempt, never the outcome) joined against the live kernel socket " +
+                "table and the TLS-transmissions archive since each block was created. Per process instance: " +
+                "contained (the kernel is dropping everything), stale-flow (a socket that predates the block " +
+                "may still be alive — firewall rules never sever established flows), or leak (socket or " +
+                "archived bytes after the block — escalate). Enabled blocks with no attempts in the window " +
+                "are listed as quiet. Read-only; for sub-threshold, UDP or DNS traffic compose with " +
+                "trace_analyze.",
+                Schema(("minutes", "Attempt look-back window (default 60, cap 1440)", false),
+                       ("contains", "Only instances whose process or destination contains this text (case-insensitive)", false)),
+                false,
+                a => VerifyBlockContainment(a)),
+
+            new Tool(
                 "check_host",
                 "'Why can't I reach this site?' in one call: resolve a hostname, then per address — range " +
                 "classification, whether it is on AutoCommand's blocked list (with rule count and since " +
@@ -685,6 +700,145 @@ namespace AutoCommand.Services
                 ["window_minutes"] = minutes,
                 ["rows"] = arr,
                 ["row_count"] = arr.Count,
+                ["inventory_refreshed_utc"] = feed.LastRefreshUtc == default ? null : feed.LastRefreshUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+            });
+        }
+
+        /// <summary>
+        /// The containment proof — one call instead of a list_blocks ×
+        /// get_monitor_rows × get_transmissions choreography with timestamp
+        /// math the caller would have to get right. BlockContainmentVerifier
+        /// holds the join; this handler gathers the live inputs.
+        /// </summary>
+        private static string VerifyBlockContainment(JsonObject a)
+        {
+            int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 60, 1, 1440);
+            string contains = a["contains"]?.GetValue<string>();
+            EnsureFeedStarted();
+            var feed = BlockHitFeedService.Instance;
+            var inv = FirewallService.Instance.GetBlockedInventoryAsync().GetAwaiter().GetResult();
+
+            var aggs = feed.Aggregates(minutes, 200);
+            if (!string.IsNullOrEmpty(contains))
+                aggs = aggs.Where(x =>
+                    (x.Process?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (x.Image?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (x.DestIp?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+
+            // Kernel sockets first, owner identity second — the snapshot
+            // ordering rule, so a pid reused in between can't attach the
+            // previous owner's start time to a live socket row.
+            var conns = TcpConnectionTable.GetEstablished();
+            var owners = new Dictionary<int, (string Name, DateTime? StartedUtc)>();
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    "SELECT ProcessId, Name, CreationDate FROM Win32_Process");
+                foreach (ManagementObject o in s.Get())
+                {
+                    DateTime? started = null;
+                    try
+                    {
+                        if (o["CreationDate"] is string dmtf && dmtf.Length > 0)
+                            started = ManagementDateTimeConverter.ToDateTime(dmtf).ToUniversalTime();
+                    }
+                    catch { /* unreadable date — the name still joins */ }
+                    owners[Convert.ToInt32(o["ProcessId"])] = (o["Name"]?.ToString() ?? "?", started);
+                }
+            }
+            catch { /* WMI down — sockets join by pid with unknown start times */ }
+
+            var sockets = conns.Select(c =>
+            {
+                owners.TryGetValue(c.Pid, out var owner);
+                return new BlockContainmentVerifier.LiveSocket
+                {
+                    Pid = c.Pid,
+                    RemoteIp = c.RemoteIp,
+                    RemotePort = c.RemotePort,
+                    ProcessName = owner.Name,
+                    ProcessStartedUtc = owner.StartedUtc,
+                };
+            }).ToList();
+
+            // Archive read bounded by the oldest block provenance; the
+            // verifier applies the per-instance t0 on top of this.
+            DateTime since = inv.Where(t => t.Created.HasValue).Select(t => t.Created.Value)
+                                .DefaultIfEmpty(DateTime.UtcNow.AddMinutes(-minutes)).Min();
+            var flows = TransmissionsArchiveService.Read(200, null, null, since);
+
+            var instances = BlockContainmentVerifier.Evaluate(aggs, inv, sockets, flows);
+
+            // Quiet roll-up: enabled blocks nothing is hitting. App matches
+            // reuse the verifier's rule so the two views can't disagree.
+            var hitIps = instances.SelectMany(i => i.BlockedIps)
+                                  .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hitImages = instances.Select(i => i.Image).ToList();
+            var quiet = new JsonArray();
+            foreach (var t in inv.Where(t => t.EnabledRules > 0))
+            {
+                bool referenced = t.Kind == "ip"
+                    ? hitIps.Contains(t.Ip)
+                    : hitImages.Any(img => BlockContainmentVerifier.IsAppBlockMatch(t, img));
+                if (!referenced)
+                    quiet.Add(new JsonObject
+                    {
+                        ["target"] = t.Target,
+                        ["kind"] = t.Kind,
+                        ["rules"] = $"{t.EnabledRules}/{t.Rules} enabled",
+                        ["created"] = t.Created?.ToString("yyyy-MM-dd HH:mm") ?? "legacy",
+                        ["state"] = "quiet",
+                    });
+            }
+
+            var arr = new JsonArray();
+            foreach (var i in instances)
+            {
+                arr.Add(new JsonObject
+                {
+                    ["verdict"] = i.Verdict,
+                    ["process"] = i.Process,
+                    ["pid"] = i.Pid,
+                    ["image"] = i.Image,
+                    ["blocked_kind"] = i.AppBlocked ? "app" : "ip",
+                    ["attempts"] = i.Attempts,
+                    ["blocked_destinations"] = new JsonArray(i.BlockedIps.Select(ip => (JsonNode)ip).ToArray()),
+                    ["first_utc"] = i.FirstUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["last_utc"] = i.LastUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["block_created_utc"] = i.T0.ToString("yyyy-MM-dd HH:mm:ss") +
+                        (i.T0Approximate ? " (approximate — legacy rule, no provenance)" : ""),
+                    ["live_sockets_to_blocked"] = new JsonArray(i.SocketEvidence.Select(e => (JsonNode)e).ToArray()),
+                    ["flows_since_block"] = i.FlowsSinceT0,
+                    ["bytes_since_block"] = i.BytesSinceT0,
+                    ["pid_reused"] = i.PidReused,
+                    ["note"] = i.Note,
+                });
+            }
+
+            if (arr.Count == 0 && quiet.Count == 0)
+                return $"Nothing to verify: no blocked-connect hits in the last {minutes} min and no enabled " +
+                       "blocks in the inventory. " +
+                       (feed.WatcherError != null ? $"Feed note: {feed.WatcherError}." :
+                           "If a site is failing, try check_host; to see who is being blocked, list_recent_block_hits.");
+
+            return ToJson(new JsonObject
+            {
+                ["type"] = "block_containment",
+                ["window_minutes"] = minutes,
+                ["instances"] = arr,
+                ["quiet_targets"] = quiet,
+                ["summary"] = new JsonObject
+                {
+                    ["leak"] = instances.Count(i => i.Verdict == BlockContainmentVerifier.Leak),
+                    ["stale_flow"] = instances.Count(i => i.Verdict == BlockContainmentVerifier.StaleFlow),
+                    ["contained"] = instances.Count(i => i.Verdict == BlockContainmentVerifier.Contained),
+                    ["quiet_targets"] = quiet.Count,
+                },
+                ["caveats"] = "EID 3 records attempts, never outcomes; the archive only holds TLS flows over " +
+                              "10 KB that decrypted or pushed upstream — absence is strong evidence, not " +
+                              "wire-level proof. Sub-threshold, UDP and DNS traffic need trace_analyze. " +
+                              "Sockets carry no creation time: 'predates the block' means the owning process " +
+                              "started before the rule was created — the honest bound the kernel table gives.",
                 ["inventory_refreshed_utc"] = feed.LastRefreshUtc == default ? null : feed.LastRefreshUtc.ToString("yyyy-MM-dd HH:mm:ss"),
             });
         }

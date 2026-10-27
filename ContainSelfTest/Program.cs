@@ -5,6 +5,9 @@
 //      file detection + JSON state probe driven entirely by temp files.
 //   3. FirewallService — the v2 rule-name builders (the strings the whole
 //      block/undo/coverage machinery joins on).
+//   4. BlockContainmentVerifier — the verify_block_containment join: every
+//      verdict (contained / stale-flow / leak) plus the identity guards
+//      (pid reuse, archive image match, loopback) from synthetic rows.
 // Nothing touches the real %LOCALAPPDATA% store, the hosts file, netsh, or
 // Defender; those halves are exercised by the app itself.
 using System;
@@ -194,6 +197,123 @@ Check("sibling suffix is 8 lowercase hex chars",
       System.Text.RegularExpressions.Regex.IsMatch(s1.Substring(s1.LastIndexOf('·') + 1).Trim(), "^[0-9a-f]{8}$"), s1);
 Check("same path → same sibling name", s1 == s2);
 Check("different path → different sibling name", s1 != s3);
+
+// ─────────────────────────────────────────────────────────────────────
+// 4. BlockContainmentVerifier — the containment join behind the
+//    verify_block_containment bridge tool. All rows synthetic; the live
+//    halves (feed, kernel table, WMI, archive) are exercised by the app.
+// ─────────────────────────────────────────────────────────────────────
+DateTime cNow = new(2026, 10, 27, 12, 0, 0, DateTimeKind.Utc);
+DateTime cT0 = new(2026, 10, 27, 10, 0, 0, DateTimeKind.Utc);
+
+BlockHitFeedService.HitAggregate CAgg(string image, int pid, string ip, int count,
+    DateTime first, DateTime last, string kind = "ip") =>
+    new() { Image = image, Process = Path.GetFileName(image), Pid = pid,
+            DestIp = ip, DestPort = 443, MatchKind = kind,
+            Count = count, FirstUtc = first, LastUtc = last };
+
+var cInv = new List<FirewallService.BlockedTarget>
+{
+    new() { Target = "1.2.3.4", Kind = "ip", Ip = "1.2.3.4", Rules = 1, EnabledRules = 1, Created = cT0 },
+    new() { Target = "5.6.7.8", Kind = "ip", Ip = "5.6.7.8", Rules = 1, EnabledRules = 1, Created = cT0 },
+    new() { Target = "upd.exe", Kind = "app", AppPath = @"C:\Tools\upd.exe", Rules = 1, EnabledRules = 1, Created = cT0 },
+    new() { Target = "9.9.9.9", Kind = "ip", Ip = "9.9.9.9", Rules = 1, EnabledRules = 1, Created = null },
+};
+
+var cV1 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\chrome.exe", 100, "1.2.3.4", 5, cT0.AddMinutes(5), cNow.AddMinutes(-2)) },
+    cInv, new(), new());
+Check("containment: attempts only → contained",
+      cV1.Count == 1 && cV1[0].Verdict == BlockContainmentVerifier.Contained && cV1[0].Attempts == 5,
+      cV1.Count == 1 ? cV1[0].Verdict : $"count={cV1.Count}");
+Check("containment: t0 from rule provenance", cV1[0].T0 == cT0 && !cV1[0].T0Approximate);
+
+var cV2 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\upd.exe", 200, "8.8.8.8", 3, cNow.AddMinutes(-90), cNow.AddMinutes(-10), kind: "app") },
+    cInv,
+    new() { new BlockContainmentVerifier.LiveSocket { Pid = 200, RemoteIp = "8.8.8.8", RemotePort = 443,
+             ProcessName = "upd.exe", ProcessStartedUtc = cT0.AddHours(-1) } },
+    new());
+Check("containment: socket owner predates block → stale-flow",
+      cV2[0].Verdict == BlockContainmentVerifier.StaleFlow, cV2[0].Verdict);
+
+var cV3 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\upd.exe", 300, "8.8.8.8", 2, cNow.AddMinutes(-30), cNow.AddMinutes(-5), kind: "app") },
+    cInv,
+    new() { new BlockContainmentVerifier.LiveSocket { Pid = 300, RemoteIp = "8.8.8.8", RemotePort = 443,
+             ProcessName = "upd.exe", ProcessStartedUtc = cT0.AddHours(1) } },
+    new());
+Check("containment: socket owner started after block → leak",
+      cV3[0].Verdict == BlockContainmentVerifier.Leak, cV3[0].Verdict);
+
+var cV4 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\b.exe", 400, "5.6.7.8", 4, cT0.AddMinutes(1), cNow.AddMinutes(-1)) },
+    cInv, new(),
+    new() { new AutoCommand.Models.TransmissionRecord { Pid = 400, Image = @"C:\Tools\b.exe",
+             RemoteIp = "5.6.7.8", TsUtc = cT0.AddMinutes(30), ClientBytes = 5_000, ServerBytes = 1_000 } });
+Check("containment: archived bytes to blocked IP after t0 → leak",
+      cV4[0].Verdict == BlockContainmentVerifier.Leak && cV4[0].BytesSinceT0 == 6_000,
+      $"{cV4[0].Verdict} bytes={cV4[0].BytesSinceT0}");
+
+var cV5 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\b.exe", 410, "5.6.7.8", 4, cT0.AddMinutes(1), cNow.AddMinutes(-1)) },
+    cInv, new(),
+    new() { new AutoCommand.Models.TransmissionRecord { Pid = 410, Image = @"C:\Tools\b.exe",
+             RemoteIp = "203.0.113.9", TsUtc = cT0.AddMinutes(30), ClientBytes = 9_000, ServerBytes = 0 } });
+Check("containment: ip-block, bytes to unblocked IP stay allowed",
+      cV5[0].Verdict == BlockContainmentVerifier.Contained, cV5[0].Verdict);
+
+var cV6 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\b.exe", 420, "9.9.9.9", 2, cNow.AddMinutes(-45), cNow.AddMinutes(-3)) },
+    cInv, new(), new());
+Check("containment: legacy block → t0 approximate from first hit",
+      cV6[0].T0 == cNow.AddMinutes(-45) && cV6[0].T0Approximate, cV6[0].T0.ToString("O"));
+
+var cV7 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\upd.exe", 500, "8.8.8.8", 2, cNow.AddMinutes(-60), cNow.AddMinutes(-30), kind: "app") },
+    cInv,
+    new() { new BlockContainmentVerifier.LiveSocket { Pid = 500, RemoteIp = "8.8.8.8", RemotePort = 443,
+             ProcessName = "upd.exe", ProcessStartedUtc = cNow.AddMinutes(-1) } },
+    new());
+Check("containment: reused-pid socket flagged, never accused",
+      cV7[0].PidReused && cV7[0].Verdict == BlockContainmentVerifier.Contained,
+      $"{cV7[0].Verdict} reused={cV7[0].PidReused}");
+
+var cV8 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\upd.exe", 600, "8.8.8.8", 2, cT0.AddMinutes(5), cNow.AddMinutes(-5), kind: "app") },
+    cInv, new(),
+    new() { new AutoCommand.Models.TransmissionRecord { Pid = 600, Image = @"C:\Tools\other.exe",
+             RemoteIp = "8.8.8.8", TsUtc = cT0.AddMinutes(30), ClientBytes = 9_999, ServerBytes = 0 } });
+Check("containment: archive join requires image match",
+      cV8[0].Verdict == BlockContainmentVerifier.Contained, cV8[0].Verdict);
+
+var cV9 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\upd.exe", 700, "8.8.8.8", 2, cT0.AddMinutes(5), cNow.AddMinutes(-5), kind: "app") },
+    cInv,
+    new() { new BlockContainmentVerifier.LiveSocket { Pid = 700, RemoteIp = "127.0.0.1", RemotePort = 9050,
+             ProcessName = "upd.exe", ProcessStartedUtc = cT0.AddHours(-2) } },
+    new());
+Check("containment: loopback socket is not exfiltration",
+      cV9[0].Verdict == BlockContainmentVerifier.Contained, cV9[0].Verdict);
+
+var cV10 = BlockContainmentVerifier.Evaluate(
+    new() { CAgg(@"C:\Tools\a.exe", 800, "1.2.3.4", 99, cT0, cNow),
+            CAgg(@"C:\Tools\upd.exe", 300, "8.8.8.8", 2, cNow.AddMinutes(-30), cNow.AddMinutes(-5), kind: "app") },
+    cInv,
+    new() { new BlockContainmentVerifier.LiveSocket { Pid = 300, RemoteIp = "8.8.8.8", RemotePort = 443,
+             ProcessName = "upd.exe", ProcessStartedUtc = cT0.AddHours(1) } },
+    new());
+Check("containment: leak sorts before contained regardless of attempts",
+      cV10.Count == 2 && cV10[0].Verdict == BlockContainmentVerifier.Leak && cV10[0].Pid == 300,
+      cV10.Count == 2 ? $"{cV10[0].Verdict} pid={cV10[0].Pid}" : $"count={cV10.Count}");
+
+var cApp = cInv[2];
+Check("app match: exact path (case-insensitive)",
+      BlockContainmentVerifier.IsAppBlockMatch(cApp, @"c:\tools\UPD.exe"));
+Check("app match: sibling path by exe name",
+      BlockContainmentVerifier.IsAppBlockMatch(cApp, @"C:\Tools\v2\upd.exe"));
+Check("app match: different exe never matches",
+      !BlockContainmentVerifier.IsAppBlockMatch(cApp, @"C:\Tools\upd2.exe"));
 
 Console.WriteLine();
 Console.WriteLine(failures == 0 ? "ALL CONTAIN SELF-TESTS PASSED" : $"{failures} CHECK(S) FAILED");
