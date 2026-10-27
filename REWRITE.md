@@ -168,6 +168,36 @@ DataModels split — the type is pure INotifyPropertyChanged, no WPF).
 - Five harnesses green: NetWatch, Bits, PyTrace (reassemble), SiteDoctor,
   Contain — all consuming shipped assemblies.
 
+### Phase 4 — delivered: `core/AutoCommand.Forensics.Core`
+
+The question-answering side: ProcessProvenanceService (PID inquiry),
+TaskAttributionService, ImageSpawnWatcherService, TraceMetricsService,
+the BITS watcher + reason catalog + firewall context, the PyTrace pair,
+KnownTaskCatalog, TaskSchedulerService, plus helpers
+(AuthenticodeVerifier, MotwUnblocker) and models (BitsJobItem/Stat,
+SpawnItem, PyTraceRecord). 17 files; ScheduledTaskItem became the second
+DataModels extraction.
+
+- Top of the layering: Forensics → Contain → Intercept → NetWatch
+  (TraceMetricsService alone touches all three cores).
+- **SpawnItem's two WPF properties (VerdictVisibility/BadgeVisibility)
+  became strings** — WPF's VisibilityConverter converts them in bindings,
+  so the views changed nothing and the core stays WPF-free. The pattern
+  for any future model that carries UI types: rows declare state, the
+  view converts.
+- First use of `InternalsVisibleTo` (Forensics → BitsTraceSelfTest): the
+  BITS harness drives the internal parser/apply seam that a source-copy
+  build could see. White-box access without polluting the public API.
+- All three source-copying harnesses retired: TaskAttributionSelfTest,
+  BitsTraceSelfTest, PyTraceSelfTest now reference the library — every
+  harness in the repo runs shipped assemblies now.
+- One flaky live-log check made honest: the BITS harness's "Font Download"
+  replay asserted a one-time event that aged out of the real BITS
+  Operational channel mid-phase; it now tolerates an empty channel window
+  (the synthetic parse check carries the logic deterministically).
+- Six harnesses green; app Debug + Release clean. Services folder: 36 → 19
+  files.
+
 ### Remaining phases
 
 Target layout (all plain `net10.0-windows` class libraries, zero WPF

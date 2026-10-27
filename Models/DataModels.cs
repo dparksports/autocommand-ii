@@ -1,13 +1,8 @@
 namespace AutoCommand.Models
 {
-    public class ScheduledTaskItem
-    {
-        public string TaskName { get; set; }
-        public string TaskPath { get; set; }
-        public string State { get; set; }
-        public string Action { get; set; }
-        public string User { get; set; }
-    }
+    // ScheduledTaskItem moved to core\AutoCommand.Forensics.Core
+    // (ScheduledTaskItem.cs) with the phase 4 extraction — TaskSchedulerService
+    // builds these rows and lives in the core now.
 
     public class NetworkAdapterItem
     {

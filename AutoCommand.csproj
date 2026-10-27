@@ -45,6 +45,11 @@
          freeze. Built test-first — ContainSelfTest proved the safety path
          offline before the move. -->
     <ProjectReference Include="core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+    <!-- Forensics core (phase 4 of the AutoCommand II extraction, see
+         REWRITE.md): provenance, task attribution + scheduling, spawn
+         watching, trace metrics, BITS watcher, Python instrumentation.
+         The top of the core layering — it references all three other cores. -->
+    <ProjectReference Include="core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
     <!-- The svchost capture/analysis engine, linked in-process: the app runs
          it directly instead of spawning a bundled child exe (which SmartScreen
          hard-blocks on download extracts). Vendored in-repo at svchost-watch\

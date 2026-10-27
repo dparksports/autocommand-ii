@@ -141,8 +141,10 @@ namespace AutoCommand.Models
         public string Verdict => _verdict;
 
         [JsonIgnore]
-        public System.Windows.Visibility VerdictVisibility =>
-            string.IsNullOrEmpty(_verdict) ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        // string, not System.Windows.Visibility — this core is WPF-free;
+        // WPF's VisibilityConverter converts these values in bindings
+        public string VerdictVisibility =>
+            string.IsNullOrEmpty(_verdict) ? "Collapsed" : "Visible";
 
         /// <summary>Chip background per verdict (color string; the XAML converter turns it into a brush).</summary>
         [JsonIgnore]
@@ -193,8 +195,10 @@ namespace AutoCommand.Models
 
         /// <summary>Collapses the badge cell when there is nothing to badge.</summary>
         [JsonIgnore]
-        public System.Windows.Visibility BadgeVisibility =>
-            string.IsNullOrEmpty(Badge) ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        // string, not System.Windows.Visibility — this core is WPF-free;
+        // WPF's VisibilityConverter converts these values in bindings
+        public string BadgeVisibility =>
+            string.IsNullOrEmpty(Badge) ? "Collapsed" : "Visible";
 
         public event PropertyChangedEventHandler PropertyChanged;
 
