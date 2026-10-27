@@ -190,6 +190,15 @@
                 </TabItem.Header>
                 <views:SysmonStatusView x:Name="SysmonTab"/>
             </TabItem>
+            <TabItem x:Name="InvestigateNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔬" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Investigate" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:InvestigateView x:Name="InvestigateTab"/>
+            </TabItem>
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">

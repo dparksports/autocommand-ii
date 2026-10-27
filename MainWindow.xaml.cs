@@ -111,7 +111,8 @@ namespace AutoCommand
             t == SpawnsNavItem || t == BitsNavItem || t == TrafficNavItem ||
             t == TracesNavItem ||
             t == BlackHoleNavItem || t == DefenderNavItem ||
-            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem;
+            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem ||
+            t == InvestigateNavItem;
 
         /// <summary>
         /// Shows or hides the advanced-investigation tabs. Also called
@@ -132,15 +133,16 @@ namespace AutoCommand
             PrivacyNavItem.Visibility = v;
             OneSettingsNavItem.Visibility = v;
             SysmonNavItem.Visibility = v;
+            InvestigateNavItem.Visibility = v;
 
             WatchHeaderText.ToolTip = enabled
                 ? "Feeds that show what this machine is running and where it connects."
                 : "Feeds that show what this machine is running and where it connects.\n" +
                   "Spawns, Traces, BITS Transfers and Traffic Patterns are hidden — Settings → Advanced investigation shows them.";
             SystemHeaderText.ToolTip = enabled
-                ? "AI access, privacy, Windows telemetry, Sysmon health and app settings."
+                ? "AI access, privacy, Windows telemetry, Sysmon health, the process Investigate tab and app settings."
                 : "AI access and app settings.\n" +
-                  "Data & Privacy, OneSettings and Sysmon Audit are hidden — Settings → Advanced investigation shows them.";
+                  "Data & Privacy, OneSettings, Sysmon Audit and Investigate are hidden — Settings → Advanced investigation shows them.";
 
             if (!enabled && IsAdvancedTab(MainTabControl.SelectedItem as System.Windows.Controls.TabItem))
                 MainTabControl.SelectedItem = ProcessMonitorNavItem;

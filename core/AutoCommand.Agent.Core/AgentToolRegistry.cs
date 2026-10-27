@@ -216,6 +216,22 @@ namespace AutoCommand.Services
                 false,
                 a => RunTrace(a)),
 
+            new Tool(
+                "investigate_process",
+                "Composite read-only investigation of one process in a single call — the whole " +
+                "'why is this transmitting?' playbook: PID provenance (who launched it, PID-recycle " +
+                "guard), traffic profile over the lookback window (frequency, destinations with " +
+                "classification, beacon regularity, recorded TLS volume, live connections), AutoCommand " +
+                "block-hit check, and a synthesized verdict ('internal-only', 'outbound attempts none " +
+                "completed', 'actively blocked', 'quiet') plus a plain-text report. Needs a PID for the " +
+                "provenance half; a name alone still gets the full traffic picture. Hours default 6 " +
+                "(cap 24) — larger windows scan more archive and take longer.",
+                Schema(("process", "Image name to investigate ('*' wildcards); used when pid is absent", false),
+                       ("pid", "Process ID to investigate instead — enables the provenance half", false),
+                       ("hours", "Lookback hours (default 6, max 24)", false)),
+                false,
+                a => InvestigateProcess(a)),
+
             // ── mutating: only present when the session allows, each call confirmed ──
 
             new Tool(
@@ -1135,7 +1151,7 @@ namespace AutoCommand.Services
             var required = new JsonArray();
             foreach (var (name, desc, req) in props)
             {
-                bool isInt = name is "pid" or "minutes" or "eid" or "max" or "seconds";
+                bool isInt = name is "pid" or "minutes" or "eid" or "max" or "seconds" or "hours";
                 bool isBool = name is "archive";
                 properties[name] = new JsonObject
                 {
@@ -1256,6 +1272,111 @@ namespace AutoCommand.Services
             o.Insert(0, "match", match.Describe());
             o["window_hours"] = hours;
             return ToJson(o);
+        }
+
+        private static string InvestigateProcess(JsonObject a)
+        {
+            string process = a["process"]?.GetValue<string>();
+            int? pid = null;
+            if (a["pid"] != null) { try { pid = a["pid"].GetValue<int>(); } catch { } }
+            if (pid == null && string.IsNullOrWhiteSpace(process))
+                return "Give either process (image name, wildcards ok) or pid — a pid adds the " +
+                       "provenance half, a name alone still gets the traffic picture.";
+            int hours = 6;
+            if (a["hours"] != null)
+            {
+                try { hours = Math.Clamp(a["hours"].GetValue<int>(), 1, 24); }
+                catch { try { hours = Math.Clamp(int.Parse(a["hours"].GetValue<string>()), 1, 24); } catch { } }
+            }
+            try
+            {
+                var inv = ProcessInvestigationService.Investigate(process, pid, hours);
+                var o = InvestigationJson(inv);
+                o["report_text"] = ProcessInvestigationService.BuildReportText(inv);
+                return ToJson(o);
+            }
+            catch (Exception ex) { return $"Investigation failed: {ex.Message}"; }
+        }
+
+        private static JsonObject InvestigationJson(ProcessInvestigationService.Investigation inv)
+        {
+            var o = new JsonObject
+            {
+                ["type"] = "process_investigation",
+                ["subject"] = inv.Requested,
+                ["pid"] = inv.RequestedPid,
+                ["image"] = inv.ImageName,
+                ["window_hours"] = inv.WindowHours,
+                ["verdict"] = new JsonObject
+                {
+                    ["kind"] = inv.Kind.ToString(),
+                    ["headline"] = inv.VerdictHeadline,
+                    ["detail"] = inv.VerdictDetail,
+                },
+            };
+
+            if (inv.Provenance != null)
+            {
+                var p = inv.Provenance;
+                o["provenance"] = new JsonObject
+                {
+                    ["pid"] = p.Pid,
+                    ["alive"] = p.Alive,
+                    ["name"] = p.Name,
+                    ["image"] = p.ExePath,
+                    ["owner"] = p.Owner,
+                    ["started"] = p.Created?.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["command_line"] = p.CommandLine,
+                    ["verdict"] = p.Verdict,
+                    ["verdict_detail"] = p.VerdictDetail,
+                    ["recycled"] = p.Recycled,
+                    ["current_owner"] = p.CurrentOwnerSummary,
+                    ["warnings"] = new JsonArray(p.Warnings.Select(w => (JsonNode)w).ToArray()),
+                };
+            }
+
+            if (inv.Trace != null)
+            {
+                var t = inv.Trace;
+                var dests = new JsonArray();
+                foreach (var d in t.Destinations)
+                    dests.Add(new JsonObject
+                    {
+                        ["ip"] = d.Ip, ["port"] = d.Port, ["connects"] = d.Count,
+                        ["classification"] = d.Classification,
+                    });
+                o["traffic"] = new JsonObject
+                {
+                    ["connects_per_hour"] = t.ConnectsPerHour,
+                    ["connects_in_window"] = t.ConnectsLast24H,
+                    ["connects_last_1h"] = t.ConnectsLast1H,
+                    ["spawns_in_window"] = t.SpawnsLast24H,
+                    ["live_connections"] = t.LiveConnectionCount,
+                    ["destinations"] = dests,
+                    ["beacon"] = t.BeaconVerdict == null ? null : t.BeaconVerdict + " — " + t.BeaconDetail,
+                    ["tls_tx_bytes"] = t.BytesAttributable ? t.TxBytes24H : null,
+                    ["tls_rx_bytes"] = t.BytesAttributable ? t.RxBytes24H : null,
+                    ["archive_note"] = t.ArchiveNote,
+                };
+            }
+
+            var hits = new JsonArray();
+            foreach (var h in inv.BlockHits.Take(10))
+                hits.Add(new JsonObject
+                {
+                    ["process"] = h.Process, ["dest"] = $"{h.DestIp}:{h.DestPort}",
+                    ["count"] = h.Count, ["match_kind"] = h.MatchKind,
+                    ["last_utc"] = h.LastUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                });
+            o["block_hits"] = new JsonObject
+            {
+                ["count_in_window"] = inv.BlockHitCount,
+                ["aggregates"] = hits,
+            };
+
+            var ev = new JsonArray(inv.Evidence.Select(e => (JsonNode)e).ToArray());
+            o["evidence"] = ev;
+            return o;
         }
 
         private static JsonObject SnapshotJson(TraceMetricsService.Snapshot snap)

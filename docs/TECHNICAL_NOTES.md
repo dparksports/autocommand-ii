@@ -196,6 +196,14 @@ Related capture-honesty fix in the same work: `TcpStreamCaptureService` now requ
 
 The app collects **no usage telemetry** — nothing in it sends data anywhere on its own. (Usage analytics via Firebase/GA4 have been removed; the "Telemetry Opt-Out" section above is the Windows-telemetry hardening feature, unrelated.)
 
+### Process Investigation (🔬 tab + `investigate_process` tool)
+
+One composite read-only investigation per run — the whole "why is this transmitting?" playbook in a single call, joining facts the individual surfaces already record rather than collecting anything new:
+
+* **`ProcessInvestigationService`** (Forensics core) — orchestrates `ProcessProvenanceService` (PID inquiry incl. the PID-reuse guard; enabled when a PID is given, best-effort on a live instance when a name is given), `TraceMetricsService` (the Traces-card traffic profile: frequency, destinations with classification, beacon regularity, recorded TLS volume, live connections), and the block-hit feed's **in-memory cache** (`Aggregates` — deliberately never the live Sysmon join, which is the slow path). Verdicts describe the numbers without claiming a baseline: Quiet → Internal-only → Outbound attempts, none completed → Actively blocked → Mixed, in priority order, each with evidence lines. Default window 6 h (cap 24) — the full-day archive scan is the slow path.
+* **`InvestigateView`** (🔬 tab, SYSTEM group, opt-in via Settings → Advanced investigation) — Site-Doctor-shaped: subject box (name or PID), lookback picker, colored verdict banner, monospace report with Copy and Save (markdown under `%LOCALAPPDATA%\AutoCommand\reports\`).
+* **`investigate_process`** on the agent bridge runs the same service and returns the structured JSON plus the identical `report_text`.
+
 ## MCP server (AgentProxy)
 
 The "autocommand" MCP server AI clients connect to is **two halves**:
