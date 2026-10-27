@@ -198,6 +198,17 @@ DataModels extraction.
 - Six harnesses green; app Debug + Release clean. Services folder: 36 → 19
   files.
 
+### Phase 5 — delivered: `core/AutoCommand.Sitedoctor.Core`
+
+The "why is this site slow?" pipeline: SiteFingerprintService,
+SiteProbeService, SiteVerdictService, DependencyBlockService (+ its Live
+half), ServiceOutageMap — 6 files. Layering: Sitedoctor → Contain →
+Intercept → NetWatch. The Live half's old blockers (transmissions archive,
+block-hit feed) dissolved in phases 2–3, so it moved with the rest.
+`InternalsVisibleTo` for SiteDoctorSelfTest's live per-edge probe section
+(phase-4 pattern). Six harnesses green; app Debug + Release clean;
+Services folder: 19 → 13 files.
+
 ### Remaining phases
 
 Target layout (all plain `net10.0-windows` class libraries, zero WPF
@@ -209,7 +220,7 @@ core/AutoCommand.NetWatch.Core   ✔ done (phase 1, see above)
 core/AutoCommand.Intercept.Core  ✔ done (phase 2, see above)
 core/AutoCommand.Contain.Core    firewall, sinkhole, blocks, Defender
 core/AutoCommand.Forensics.Core  provenance, attribution, PyTrace, Bits, traces
-core/AutoCommand.Sitedoctor.Core fingerprint, probe, verdict, dependency blocks
+core/AutoCommand.Sitedoctor.Core  ✔ done (phase 5, see above)
 core/AutoCommand.Agent.Core      bridge, tool registry, MCP registration
 ```
 

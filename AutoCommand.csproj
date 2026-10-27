@@ -50,6 +50,11 @@
          watching, trace metrics, BITS watcher, Python instrumentation.
          The top of the core layering — it references all three other cores. -->
     <ProjectReference Include="core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
+    <!-- Sitedoctor core (phase 5, REWRITE.md): the "why is this site slow?"
+         pipeline - fingerprint, probes, verdicts, dependency blocks, outage
+         map. Its Live half moved too: the archive/block-feed blockers
+         dissolved when Intercept and Contain extracted. -->
+    <ProjectReference Include="core\AutoCommand.Sitedoctor.Core\AutoCommand.Sitedoctor.Core.csproj" />
     <!-- The svchost capture/analysis engine, linked in-process: the app runs
          it directly instead of spawning a bundled child exe (which SmartScreen
          hard-blocks on download extracts). Vendored in-repo at svchost-watch\
