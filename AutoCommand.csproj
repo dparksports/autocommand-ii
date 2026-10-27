@@ -55,6 +55,12 @@
          map. Its Live half moved too: the archive/block-feed blockers
          dissolved when Intercept and Contain extracted. -->
     <ProjectReference Include="core\AutoCommand.Sitedoctor.Core\AutoCommand.Sitedoctor.Core.csproj" />
+    <!-- Agent core (phase 6, REWRITE.md): the Be My Guest MCP bridge, tool
+         registry, and client registration. The confirmation seam is
+         inverted through Sdk\IAgentInteraction - this app installs
+         Services\WpfAgentInteraction at startup; headless hosts install
+         nothing. -->
+    <ProjectReference Include="core\AutoCommand.Agent.Core\AutoCommand.Agent.Core.csproj" />
     <!-- The svchost capture/analysis engine, linked in-process: the app runs
          it directly instead of spawning a bundled child exe (which SmartScreen
          hard-blocks on download extracts). Vendored in-repo at svchost-watch\
@@ -130,6 +136,10 @@
     <!-- Contain self-test: the blocking/safety path — built test-first,
          before the phase 3 extraction (REWRITE.md); own Main() -->
     <Compile Remove="ContainSelfTest\**" />
+    <!-- AgentHost: the headless console face over the Agent core (phase 6,
+         REWRITE.md) - built through its own ProjectReference from its
+         csproj; own Main(), same glob reason as every other side project -->
+    <Compile Remove="AgentHost\**" />
     <Compile Remove="OneSettingsCadence\**" />
     <!-- Extracted core engines (AutoCommand II phases, REWRITE.md): built
          through their own ProjectReferences — same glob reason as

@@ -209,7 +209,43 @@ block-hit feed) dissolved in phases 2–3, so it moved with the rest.
 (phase-4 pattern). Six harnesses green; app Debug + Release clean;
 Services folder: 19 → 13 files.
 
-### Remaining phases
+### Phase 6 — delivered: `core/AutoCommand.Agent.Core` + the headless face
+
+The Be My Guest stack: AgentBridgeService (MCP listener), AgentToolRegistry
+(read-only-by-default tools over every core), McpClientRegistration,
+TraceProjectStore + TraceProject — namespaces unchanged.
+
+- **The UI seam inverted through `Sdk\IAgentInteraction`**: the bridge asks
+  per-action confirmation through the interface; the WPF shell installs
+  `WpfAgentInteraction` (the AgentConfirmWindow dialog) at startup. The
+  whole UI coupling of the agent stack was exactly one dialog construction
+  plus two view-static helpers — both rehomed first
+  (ProcessProvenanceService.BuildReportText, SvchostTraceClassifier).
+- **`AgentHost`**: a tiny console face over the same core — headless AI
+  sessions no longer boot the WPF application. No interaction installed,
+  so mutating tools stay denied-by-default; single-instance guard shared
+  with the app. Shipped in the zip under AgentHost\ (framework-dependent).
+- ProxyInstallSelfTest consumes the library (InternalsVisibleTo for the
+  internal install overload) — the LAST source-copying harness retired;
+  all seven harnesses now run shipped assemblies.
+- Services folder: 13 → 10 files. The exe now holds views, prefs, and
+  wiring; every engine lives in a core.
+
+### The rewrite's structural work is complete
+
+#### Deliberately deferred (cosmetic or behavior-adjacent; do NOT block on them)
+
+- Namespace migration to AutoCommand.<Core>.* (mechanical; do per-cluster
+  when touching a cluster anyway)
+- Singleton → composed-instance cleanup (the .Instance surfaces work and
+  are battle-tested; change only when a real need appears)
+- Remaining view conversions to RefreshLoop/ListSync (Transmissions,
+  SvchostMonitor pipeline) — phase 0 captured the mechanism; convert
+  opportunistically
+- Upstream sync: port user-facing fixes from the original repo into the
+  cores per release window (PORTING.md tracks them)
+
+### (Historical) remaining phases list
 
 Target layout (all plain `net10.0-windows` class libraries, zero WPF
 references, same pattern as the existing vendored engines):

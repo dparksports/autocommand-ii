@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
+using AutoCommand.Sdk;
 
 namespace AutoCommand.Services
 {
@@ -377,30 +377,29 @@ namespace AutoCommand.Services
         /// after the user answers or the timeout elapses (deny). "Always for
         /// this session" grants are remembered per tool until Stop().
         /// </summary>
+        // The UI seam, installed by the host: the WPF shell wires the
+        // AgentConfirmWindow dialog; headless hosts leave it null and every
+        // mutating ask is denied with the plain-language note (same as it
+        // ever was with no UI present).
+        public static Sdk.IAgentInteraction Interaction { get; set; }
+
+        /// <summary>
+        /// Asks the user at the host's UI (if one is installed). Blocking;
+        /// returns after the user answers or the timeout elapses (deny).
+        /// "Always for this session" grants are remembered per tool until
+        /// Stop(). The interaction implementation marshals to its own UI
+        /// thread; timeout + grant bookkeeping stay here.
+        /// </summary>
         public (bool Allowed, string Note) RequestConfirmation(string tool, string detail)
         {
             if (!_allowMutating) return (false, "mutating tools are disabled for this session");
 
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher == null)
+            var ui = Interaction;
+            if (ui == null)
                 return (false, "headless session has no UI to confirm with — restart the session from AutoCommand Settings to allow mutating tools");
 
             var tcs = new TaskCompletionSource<(bool, bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-            dispatcher.BeginInvoke(() =>
-            {
-                try
-                {
-                    var win = new Views.AgentConfirmWindow(tool, detail)
-                    {
-                        Owner = Application.Current?.MainWindow,
-                        Topmost = true,
-                    };
-                    win.ShowDialog();
-                    tcs.TrySetResult((win.Allowed, win.AlwaysForTool, win.Allowed ? "allowed by user" : "denied by user"));
-                }
-                catch (Exception ex) { tcs.TrySetResult((false, false, "confirm dialog failed: " + ex.Message)); }
-            });
-
+            _ = Task.Run(() => { try { tcs.TrySetResult(ui.RequestConfirmation(tool, detail)); } catch (Exception ex) { tcs.TrySetResult((false, false, "confirm failed: " + ex.Message)); } });
             var completed = Task.WhenAny(tcs.Task, Task.Delay(ConfirmTimeoutMs)).GetAwaiter().GetResult();
             if (completed != tcs.Task) return (false, $"no answer in {ConfirmTimeoutMs / 1000}s");
             var (allowed, always, note) = tcs.Task.Result;

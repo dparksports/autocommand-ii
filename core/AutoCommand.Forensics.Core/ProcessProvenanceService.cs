@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
@@ -842,5 +843,50 @@ namespace AutoCommand.Services
             < 1048576 => $"{bytes / 1024.0:F1} KB",
             _ => $"{bytes / 1048576.0:F1} MB"
         };
+
+        /// <summary>The full plain-English report text — the PID Inquiry
+        /// window's copy button and the AI-access bridge's run_pid_inquiry
+        /// tool both render through this. Moved here (Forensics core) with
+        /// the phase 6 extraction so the formatter lives beside the report
+        /// type it formats; the window and the registry consume it from here.</summary>
+        public static string BuildReportText(ProvenanceReport r)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"PID INQUIRY — {r.Pid} · {r.Name}");
+            sb.AppendLine($"Verdict: {r.Verdict} — {r.VerdictDetail}");
+            sb.AppendLine($"Identity: image {r.ExePath ?? "?"} · started {r.Created:yyyy-MM-dd HH:mm:ss} · " +
+                          $"owner {r.Owner ?? "?"} · {(r.Alive ? "running" : "not running")}");
+            if (!string.IsNullOrEmpty(r.CommandLine))
+                sb.AppendLine("Command line: " + r.CommandLine);
+            if (r.Recycled && !string.IsNullOrEmpty(r.CurrentOwnerSummary))
+            {
+                sb.AppendLine();
+                sb.AppendLine("⚠ PID RECYCLED — the subject above has EXITED. The PID now belongs to:");
+                sb.AppendLine("      " + r.CurrentOwnerSummary);
+                sb.AppendLine("      (unrelated process — everything below describes the exited subject)");
+            }
+            sb.AppendLine();
+            sb.AppendLine("SPAWN CHAIN (child → root):");
+            foreach (var link in r.Chain)
+            {
+                sb.AppendLine($"  PID {link.Pid} · {link.Name} · {link.Created:yyyy-MM-dd HH:mm:ss} · " +
+                              $"{link.Owner ?? "?"}{(link.Verified ? "" : "   [UNVERIFIED]")}");
+                if (!string.IsNullOrEmpty(link.CommandLine)) sb.AppendLine("      cmd: " + link.CommandLine);
+                if (!string.IsNullOrEmpty(link.Note)) sb.AppendLine("      note: " + link.Note);
+            }
+            sb.AppendLine();
+            sb.AppendLine("EVIDENCE:");
+            foreach (var ev in r.Evidence)
+                sb.AppendLine($"  [{ev.Source}] {ev.Detail.Replace("\r\n      ", "\r\n       ")}");
+            if (r.Warnings.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("WARNINGS:");
+                foreach (string w in r.Warnings) sb.AppendLine("  " + w);
+            }
+            sb.AppendLine();
+            sb.AppendLine($"Generated {DateTime.Now:yyyy-MM-dd HH:mm:ss} by AutoCommand Process Monitor (read-only inquiry)");
+            return sb.ToString();
+        }
     }
 }

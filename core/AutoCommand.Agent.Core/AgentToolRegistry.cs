@@ -339,7 +339,7 @@ namespace AutoCommand.Services
                     ["remote"] = c.RemoteEndPoint,
                     ["pid"] = c.Pid,
                     ["process"] = name,
-                    ["classification"] = Views.SvchostTraceView.Classify(c.RemoteIp),
+                    ["classification"] = SvchostTraceClassifier.Classify(c.RemoteIp),
                     ["attribution"] = attribution,
                 };
                 if (started != null)
@@ -445,7 +445,7 @@ namespace AutoCommand.Services
         {
             int pid = a["pid"]?.GetValue<int>() ?? 0;
             var report = ProcessProvenanceService.Collect(pid);
-            return Views.ProcessTraceWindow.BuildReportText(report);
+            return ProcessProvenanceService.BuildReportText(report);
         }
 
         private static string TailSysmon(JsonObject a)

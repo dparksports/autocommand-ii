@@ -97,6 +97,12 @@ namespace AutoCommand
             // code: telemetry/ in the repository.
             _ = Services.UsagePingService.RunStartupFlowAsync();
 
+            // The agent bridge's confirmation seam: mutating AI-session
+            // asks show the AgentConfirmWindow dialog at the app's UI.
+            // Headless hosts never install one — their mutating tools are
+            // denied with the plain-language note, exactly as before.
+            Services.AgentBridgeService.Interaction = new Services.WpfAgentInteraction();
+
             // Auto-started AI session (opt-in from Settings → AI access): the
             // consent was given once at the checkbox; every launch honors it.
             // Read-only unless the mutating preference is separately on.
