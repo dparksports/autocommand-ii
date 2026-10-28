@@ -163,6 +163,41 @@ try
     Check("6f repaired config no longer flagged (only 'outdated' left)",
           after.Count == 1 && after[0].Client.Id == "outdated",
           "flagged: " + string.Join(",", after.Select(s => s.Client.Id)));
+
+    // ── 7. offline stub drift tripwire ─────────────────────────────────
+    // The AgentProxy's offline tool list must carry EVERY registered tool
+    // (policy: an offline client always sees the full surface, each entry
+    // answering 'needs an active session'). This check fails the suite the
+    // moment the stub list drifts from the registry. Skips with a note when
+    // the repo checkout isn't reachable (published-exe layout).
+    string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "AutoCommand.csproj")) &&
+                File.Exists(Path.Combine(dir.FullName, "AgentProxy", "Program.cs")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return null;
+    }
+    string repoRoot = FindRepoRoot();
+    if (repoRoot == null)
+        Console.WriteLine("SKIP  stub-drift check — AgentProxy/Program.cs not found (published layout)");
+    else
+    {
+        string stubSrc = File.ReadAllText(Path.Combine(repoRoot, "AgentProxy", "Program.cs"));
+        var stubNames = System.Text.RegularExpressions.Regex
+            .Matches(stubSrc, @"""name"":\s*""([a-z_]+)""")
+            .Select(m => m.Groups[1].Value)
+            .ToHashSet();
+        var regNames = AgentToolRegistry.ToolNames.ToHashSet();
+        Check("7a stub list has no phantom tools", stubNames.IsSubsetOf(regNames),
+              "phantom: " + string.Join(",", stubNames.Except(regNames)));
+        Check("7b every registry tool has an offline stub", regNames.IsSubsetOf(stubNames),
+              "missing: " + string.Join(",", regNames.Except(stubNames)));
+    }
 }
 finally
 {

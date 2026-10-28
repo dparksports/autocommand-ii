@@ -34,6 +34,12 @@ namespace AutoCommand.Services
 
         // ── registry access ───────────────────────────────────────────────
 
+        /// <summary>Every registered tool's name — the single source the
+        /// AgentProxy offline stub list is checked against (ProxyInstallSelfTest
+        /// fails the build if the stub list drifts from this).</summary>
+        public static IReadOnlyList<string> ToolNames =>
+            Tools.Select(t => t.Name).ToList();
+
         private static readonly List<Tool> Tools = new()
         {
             new Tool(
