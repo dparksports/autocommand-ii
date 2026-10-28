@@ -5,6 +5,60 @@ namespace AutoCommand
 {
     public partial class App : Application
     {
+        // ── upgrade carry-over notice ────────────────────────────────────────
+        // All state lives outside the program folder (%LOCALAPPDATA%\AutoCommand
+        // for the blocks ledger, preferences and traces; %ProgramData%\AutoCommand
+        // for the machine-wide caches), so an update that unzips a new folder
+        // keeps everything. The marker file makes that explicit: the first run
+        // from a changed install folder says so in one dialog, then goes quiet.
+        private static void NotifyIfInstallMoved()
+        {
+            const string markerSubdir = "install";
+            try
+            {
+                string stateDir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AutoCommand");
+                string markerPath = System.IO.Path.Combine(stateDir, markerSubdir, "last-exe-path.txt");
+                string current = Environment.ProcessPath
+                    ?? System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+                bool hasPriorState = System.IO.Directory.Exists(stateDir) &&
+                    System.IO.Directory.EnumerateFileSystemEntries(stateDir).Any(
+                        e => !string.Equals(System.IO.Path.GetFileName(e), markerSubdir,
+                             System.StringComparison.OrdinalIgnoreCase));
+                if (!hasPriorState)
+                {
+                    WriteInstallMarker(markerPath, current); // fresh machine: nothing to announce
+                    return;
+                }
+
+                string previous = System.IO.File.Exists(markerPath)
+                    ? System.IO.File.ReadAllText(markerPath).Trim()
+                    : null;
+                if (!string.Equals(previous, current, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show(
+                        "AutoCommand was updated or moved.\n\n" +
+                        "Your existing data is untouched and still in use — every block, the undo " +
+                        "ledger (Restore Internet), your preferences, traces and caches. It all lives " +
+                        "outside the program folder, in:\n" + stateDir +
+                        "\n\nNothing was reset, and deleting the old program folder is safe.",
+                        "AutoCommand — updated", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                WriteInstallMarker(markerPath, current);
+            }
+            catch
+            {
+                // the marker is best-effort; it must never block startup
+            }
+        }
+
+        private static void WriteInstallMarker(string markerPath, string current)
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(markerPath));
+            System.IO.File.WriteAllText(markerPath, current);
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -35,6 +89,12 @@ namespace AutoCommand
                 RunOneSettingsEnforce();
                 return;
             }
+
+            // Upgrade carry-over: state lives outside the program folder, so
+            // an update that unzips a new folder keeps every block, the undo
+            // ledger, preferences and caches. First run from a changed folder
+            // says so — once, one dialog (never on the headless paths above).
+            NotifyIfInstallMoved();
 
             // Apply the saved theme before any window loads (brushes are
             // DynamicResource, so this also re-themes live when changed later)
