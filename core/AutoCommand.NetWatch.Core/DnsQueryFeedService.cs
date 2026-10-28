@@ -101,7 +101,14 @@ namespace AutoCommand.NetWatch.Core
         private DnsQueryFeedService() { }
 
         /// <summary>Idempotent: safe to call from the DNS tab, bridge handlers, startup.</summary>
-        public void Start()
+        public void Start() => Start(withWatcher: true);
+
+        /// <summary>
+        /// The watcher-optional overload — the offline self-test starts the
+        /// feed without an event subscription, so a live Sysmon channel can
+        /// never pollute its synthetic expectations.
+        /// </summary>
+        public void Start(bool withWatcher)
         {
             lock (_gate)
             {
@@ -109,6 +116,12 @@ namespace AutoCommand.NetWatch.Core
                 _running = true;
             }
             if (_queries.Count == 0) Load(); // a fresh process restores its ring; an in-process restart already holds it (loading on top would double-count)
+            if (!withWatcher)
+            {
+                WatcherError = "watcher not started (offline mode)";
+                _saveTimer = new Timer(_ => SaveIfDirty(), null, SaveInterval, SaveInterval);
+                return;
+            }
             try
             {
                 var query = new EventLogQuery("Microsoft-Windows-Sysmon/Operational",

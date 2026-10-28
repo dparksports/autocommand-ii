@@ -44,7 +44,7 @@ feed.Record(baseTime.AddMinutes(-5), "chrome.exe", 100, "beacon.test", new List<
 feed.Record(baseTime.AddMinutes(-4), "chrome.exe", 100, "beacon.test", new List<string> { "198.51.100.9" });
 feed.Record(baseTime.AddMinutes(-3), "chrome.exe", 100, "beacon.test", new List<string> { "198.51.100.9" });
 
-feed.Start();
+feed.Start(withWatcher: false); // offline mode: the live Sysmon channel must never pollute synthetic expectations
 Check("Start marks the feed running", feed.IsRunning);
 feed.Stop();
 Check("Stop marks the feed stopped and flushed", File.Exists(Path.Combine(store, "dns-queries.jsonl")));
