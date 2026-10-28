@@ -322,6 +322,29 @@ Rules of the road:
 
 ## Post-rewrite iterations log
 
+- **Debt-register pass (2026-10-27, post-cutover)** — the register from the
+  cutover review, worked in sequence: (1) CI gate workflow (`ci.yml` —
+  Debug+Release builds plus the strict offline suites on every push;
+  SiteDoctor/TaskAttribution run advisory, live channels on a stock
+  runner); (2) `.gitattributes` (renormalize changed zero blobs — the
+  repo was already LF-normalized; the file locks the invariant); (3) the
+  AgentProxy offline stub list now carries all 22 tools and a
+  ProxyInstallSelfTest tripwire fails on any drift from
+  `AgentToolRegistry.ToolNames`; (4) per-call urgency (ResolveNow's queue
+  item carries its own flag — the process-global skip-spacing token is
+  gone); (5) PLAN.md + PORTING.md archived to `docs/history/`; (6) the
+  namespace migration (the deferred debt whose blocker died with the
+  freeze): every core owns its namespace, Contain/Sitedoctor gained the
+  explicit NetWatch ProjectReference their transitive lean-in was hiding,
+  `AutoCommand.Models` kept deliberately shared; (7) the geo engine split
+  out of DnsResolutionService (`DnsResolutionService.Geo.cs`, partial
+  class); (8) `TlsKeylogService.DirOverride` removed (dead settable
+  global, zero users) and TraceProjectStore converted to the BlocksLedger
+  pattern (`TraceProjectLibrary` instance + static facade). View
+  conversions remain closed by the 2026-10-27 re-survey — every repeating
+  timer is gated, self-gating, or on the do-not-gate list; convert
+  opportunistically only. AgentHost stays framework-dependent by design
+  (documented in its shipped README) — decided, not debt.
 - **Cutover declared (2026-10-27)** — `dparksports/autocommand-windows`
   frozen at v2026.10.25.4 (PORTING.md records the closure); this tree
   becomes the one AutoCommand. The shipping bar is unchanged: every

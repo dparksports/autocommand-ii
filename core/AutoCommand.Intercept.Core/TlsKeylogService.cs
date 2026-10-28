@@ -20,11 +20,13 @@ namespace AutoCommand.Intercept.Core
     /// </summary>
     public class TlsKeylogService
     {
-        /// <summary>Self-test seam: redirects the pytrace dir when set (null in the app).</summary>
-        public static string DirOverride { get; set; }
+        // The pytrace dir is a fixed machine location (the instrumented
+        // children write there via SSLKEYLOGFILE — there is nothing to
+        // redirect); the old settable DirOverride global had no users and
+        // was removed with the singleton-conversion debt pass.
 
         public static string Dir =>
-            DirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "AutoCommand", "pytrace");
 
         public static string KeylogPath => Path.Combine(Dir, "sslkeys.log");
