@@ -43,6 +43,18 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 | Cache files | `C:\ProgramData\AutoCommand\dns_cache.json`, `geo_prefix_cache.json`, `dns_forward_cache.json` — machine-wide, so they survive install-folder moves (a legacy beside-the-exe cache is copied once on first run) |
 | AI access | `lookup_ip` on the bridge reports the same cascade and state; `force: true` is the urgent path |
 
+### DNS queries + UDP transports (the 🌐 tab and the Proto column)
+
+| Concern | Technology |
+|---|---|
+| Query feed | `DnsQueryFeedService` — own `EventLogWatcher` over `*[System[(EventID=22)]]` (the app's Sysmon config captures DNS queries; this service is their only consumer). 24 h ring persisted to `%LOCALAPPDATA%\AutoCommand\dns\dns-queries.jsonl`, so yesterday's lookups stay explainable |
+| Two facets | **Per domain** — who asks, how often, first/last seen, resolved addresses with classification and blocked status, and beacon regularity (inter-query gap CV: lower = the machine asks on a metronome; beacons look like that, scheduled updaters too). **Per process** — everything a program resolves, busiest first |
+| DoH honesty | DNS-over-HTTPS produces no EID 22 events. A query FOR a known encrypted resolver (Cloudflare, Google, Quad9, NextDNS…) is flagged 🔒 — it marks the moment a process switches to DNS this feed cannot see |
+| Monitor seeding | Resolved addresses name already-tracked monitor rows via `SeedFromSysmon` (targeted: the cache never fills with never-connected domains) |
+| UDP transports | Rows track **every transport seen** against their remote address (`Proto` column: TCP / UDP / TCP+UDP) plus a transport lens (All/TCP/UDP) over the same view filter as the TX-only lens. The raw-IP sniffer is transport-agnostic by construction — UDP datagrams to tracked addresses were always counted |
+| MCP | `list_dns_queries` (minutes / domain facet / contains / max) reports the same aggregates; offline stub included |
+| Limits | Loopback traffic never crosses the NIC (invisible to the sniffer and to EID 3's usefulness); QUIC shows as UDP/443 volumes without content — same metadata-only stance as the transmissions archive |
+
 ### Sysmon Audit
 | Concern | Technology |
 |---|---|
