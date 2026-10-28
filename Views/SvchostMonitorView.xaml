@@ -23,6 +23,13 @@
                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,-12,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <ComboBox x:Name="ProtoCombo" Width="110" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"
+                          SelectionChanged="ProtoCombo_SelectionChanged" SelectedIndex="0"
+                          ToolTip="Filter rows by transport. Rows are keyed by remote address and may carry both transports (shown in the Proto column)">
+                    <ComboBoxItem Content="All transports" Tag=""/>
+                    <ComboBoxItem Content="TCP" Tag="TCP"/>
+                    <ComboBoxItem Content="UDP" Tag="UDP"/>
+                </ComboBox>
                 <Button x:Name="SetupSysmonBtn" Content="🛠 Setup Sysmon" Style="{StaticResource PrimaryButton}" Click="SetupSysmonBtn_Click" Margin="0,0,8,0" Visibility="Collapsed"/>
                 <Button x:Name="ToggleMonitorBtn" Content="Start Monitor" Style="{StaticResource PrimaryButton}" Click="ToggleMonitorBtn_Click" Margin="0,0,8,0"/>
                 <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click" Margin="0,0,8,0"/>
@@ -250,6 +257,15 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Proto" Width="86">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ProtocolDisplay}" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       ToolTip="Transports seen against this remote address — rows are keyed by IP, so one row may carry both TCP and UDP"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AutoCommand.NetWatch.Core;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -29,6 +30,43 @@ namespace AutoCommand.Models
         public int ProcessId { get; set; }
         public string RemoteIp { get; set; }
         public string Protocol { get; set; }
+
+        // ── transport tracking (rows are keyed by remote IP, so one row may
+        //    legitimately cover both TCP and UDP — display must not lie) ────
+
+        private readonly HashSet<string> _protocolsSeen = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Records one more transport seen against this row's
+        /// remote IP (Sysmon EID 3 reports TCP and UDP alike).</summary>
+        public void NoteProtocol(string protocol)
+        {
+            if (string.IsNullOrWhiteSpace(protocol)) return;
+            if (_protocolsSeen.Add(protocol))
+            {
+                OnPropertyChanged(nameof(ProtocolDisplay));
+                OnPropertyChanged(nameof(IsUdp));
+            }
+        }
+
+        /// <summary>Every transport seen against this row: "TCP", "UDP", or
+        /// "TCP+UDP" when the remote speaks both.</summary>
+        public string ProtocolDisplay
+        {
+            get
+            {
+                if (_protocolsSeen.Count == 0) return Protocol ?? "";
+                var ordered = new List<string>();
+                if (_protocolsSeen.Contains("TCP")) ordered.Add("TCP");
+                if (_protocolsSeen.Contains("UDP")) ordered.Add("UDP");
+                foreach (var p in _protocolsSeen) if (!ordered.Contains(p)) ordered.Add(p);
+                return string.Join("+", ordered);
+            }
+        }
+
+        /// <summary>True when UDP has been observed against this row — the
+        /// UDP lens in the protocol filter.</summary>
+        public bool IsUdp => _protocolsSeen.Contains("UDP") ||
+                             string.Equals(Protocol, "UDP", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Full executable path as logged by Sysmon (null when unknown). It

@@ -264,6 +264,7 @@ namespace AutoCommand.NetWatch.Core
                         LastSeen = DateTime.UtcNow,
                         RxBytes = 0, TxBytes = 0, RxPackets = 0, TxPackets = 0
                     };
+                    item.NoteProtocol("tcp");
 
                     if (_trackedIps.TryAdd(destIp, item))
                     {
@@ -390,6 +391,11 @@ namespace AutoCommand.NetWatch.Core
 
                 if (_trackedIps.TryGetValue(destIp, out var existing))
                 {
+                    // Rows are keyed by remote IP, so one row may cover both
+                    // transports: record every protocol seen against it (a
+                    // UDP talker must never read as TCP-only).
+                    existing.NoteProtocol(protocol);
+
                     // Same process reconnecting — the row already covers it.
                     if (existing.ProcessId == pid) return;
 

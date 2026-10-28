@@ -119,8 +119,11 @@ namespace AutoCommand.Views
                 liveShaping.IsLiveSorting = true;
                 // TX-only filter membership is live too: rows slide in when
                 // their grace period lapses with zero Rx, and drop out the
-                // moment a reply packet lands.
+                // moment a reply packet lands. ProtocolDisplay is live as
+                // well: a row gains UDP (and with the protocol lens on) the
+                // moment the first UDP event lands against its IP.
                 liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.IsTxOnly));
+                liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.ProtocolDisplay));
                 liveShaping.IsLiveFiltering = true;
             }
             if (CollectionViewSource.GetDefaultView(_uiCollection) is ListCollectionView view)
@@ -342,13 +345,26 @@ namespace AutoCommand.Views
         {
             // Assigning Filter refreshes the view; with live filtering on
             // IsTxOnly, membership keeps itself current afterwards.
-            CollectionViewSource.GetDefaultView(_uiCollection).Filter =
-                TxOnlyCheck.IsChecked == true ? TxOnlyPredicate : null;
+            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
             UpdateTxOnlyCheckLabel();
         }
 
-        private static bool TxOnlyPredicate(object o) =>
-            o is SvchostMonitorItem m && m.IsTxOnly;
+        /// <summary>The one view filter: the TX-only lens AND the transport
+        /// lens (both optional — a row must satisfy every active lens).</summary>
+        private string _protocolFilter;   // null = all transports
+
+        private bool RowsFilterPredicate(object o) =>
+            o is SvchostMonitorItem m &&
+            (TxOnlyCheck.IsChecked != true || m.IsTxOnly) &&
+            (string.IsNullOrEmpty(_protocolFilter) ||
+             (m.ProtocolDisplay ?? "").Contains(_protocolFilter, StringComparison.OrdinalIgnoreCase));
+
+        private void ProtoCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _protocolFilter = (ProtoCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+            if (_uiCollection == null) return; // toolbar built before the collection
+            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
+        }
 
         /// <summary>
         /// Keeps the TX-only count in the checkbox label so users can see how
