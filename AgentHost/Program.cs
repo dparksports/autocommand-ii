@@ -2,7 +2,12 @@
 // Same session semantics as the app's --agent-headless path, minus WPF:
 // single-instance guard, optional seconds cap, stdin-close stops, and
 // mutating tools permanently denied (no confirmation seam installed).
-using AutoCommand.Services;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 
 int seconds = 0;
 var hostArgs = Environment.GetCommandLineArgs();
