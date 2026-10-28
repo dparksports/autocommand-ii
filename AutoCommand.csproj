@@ -136,6 +136,8 @@
     <!-- Contain self-test: the blocking/safety path — built test-first,
          before the phase 3 extraction (REWRITE.md); own Main() -->
     <Compile Remove="ContainSelfTest\**" />
+    <!-- DNS query feed self-test (UDP+DNS phase): synthetic EID-22 rows -->
+    <Compile Remove="DnsFeedSelfTest\**" />
     <!-- AgentHost: the headless console face over the Agent core (phase 6,
          REWRITE.md) - built through its own ProjectReference from its
          csproj; own Main(), same glob reason as every other side project -->
@@ -157,34 +159,14 @@
   </Target>
 
   <!-- ── Versioning: <Version> above is the single source of truth ──
-       GenerateAssemblyInfo stays false (WPF designer CS0579 workaround), so this
-       target generates the assembly version attributes from <Version> into obj\
-       at build time. Properties\AssemblyInfo.cs deliberately carries none — never
-       hand-add AssemblyVersion/FileVersion/InformationalVersion anywhere; bump
-       <Version> and everything (binary, tag, zips, release title via release.ps1)
-       follows. -->
-  <Target Name="GenerateVersionAssemblyInfo" BeforeTargets="BeforeCompile">
-    <Error Condition="'$(Version)' == ''"
-           Text="GenerateVersionAssemblyInfo: &lt;Version&gt; is empty — it is the single source of truth and must be set (e.g. 2026.10.15)." />
-    <PropertyGroup>
-      <!-- exactly four segments: 3-part versions get .0, a same-day fourth
-           segment (2026.10.14.1) passes through unchanged -->
-      <Version4>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '^\d+\.\d+\.\d+$', '$0.0'))</Version4>
-      <GeneratedVersionFile>$(IntermediateOutputPath)GeneratedVersionInfo.cs</GeneratedVersionFile>
-    </PropertyGroup>
-    <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
-    <ItemGroup>
-      <GeneratedVersionLines Include="// Auto-generated from &lt;Version&gt; in AutoCommand.csproj — do not edit." />
-      <GeneratedVersionLines Include="using System.Reflection%3B" />
-      <GeneratedVersionLines Include="[assembly: AssemblyVersion(&quot;$(Version4)&quot;)]" />
-      <GeneratedVersionLines Include="[assembly: AssemblyFileVersion(&quot;$(Version4)&quot;)]" />
-      <GeneratedVersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(Version)&quot;)]" />
-    </ItemGroup>
-    <WriteLinesToFile File="$(GeneratedVersionFile)" Lines="@(GeneratedVersionLines)" Overwrite="true" />
-    <ItemGroup>
-      <Compile Include="$(GeneratedVersionFile)" />
-    </ItemGroup>
-  </Target>
+       The three assembly attributes live in Properties\GeneratedVersionInfo.cs
+       (a tracked source file) and are rewritten by release.ps1 at release
+       time, together with <Version> here. A build-time target that generated
+       that file into obj\ was retired: the WPF markup (_wpftmp) pass
+       re-lists target-added Compile items, so csc saw the file twice and
+       every attribute went CS0579. GenerateAssemblyInfo stays false (the
+       SDK would generate a second set; Properties\AssemblyInfo.cs keeps
+       TargetFramework + SupportedOSPlatform by hand). -->
 
   <!-- The Svchost Trace capture engine no longer ships inside the app zip:
        AutoCommand links SvchostAnalyzer.Core directly and runs captures

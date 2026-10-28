@@ -78,6 +78,17 @@ if (-not $DryRun) {
     $newProxyText = $proxyText -replace "(?m)^(\s*<Version>)[\d.]+(</Version>\s*)$", "`${1}$Version`${2}"
     if ($newProxyText -eq $proxyText) { Die 'failed to rewrite <Version> in AgentProxy\AutoCommand.AgentProxy.csproj' }
     [System.IO.File]::WriteAllText($proxyCsproj, $newProxyText)
+
+    # The tracked version-attribute file follows too (the compiled attributes
+    # and the csproj <Version> are one version, shipped together).
+    $verInfoCs = Join-Path $PSScriptRoot 'Properties\GeneratedVersionInfo.cs'
+    $verText = [System.IO.File]::ReadAllText($verInfoCs)
+    $four = if ($Version -match '^\d+\.\d+\.\d+$') { "$Version.0" } else { $Version }
+    $newVerText = $verText -replace 'AssemblyVersion\("[\d.]+"\)', "AssemblyVersion(`"$four`")" `
+        -replace 'AssemblyFileVersion\("[\d.]+"\)', "AssemblyFileVersion(`"$four`")" `
+        -replace 'AssemblyInformationalVersion\("[\d.]+"\)', "AssemblyInformationalVersion(`"$Version`")"
+    if ($newVerText -eq $verText) { Die 'failed to rewrite versions in Properties\GeneratedVersionInfo.cs' }
+    [System.IO.File]::WriteAllText($verInfoCs, $newVerText)
 }
 
 $relVersion = if ($DryRun) { $currentVersion } else { $Version }
@@ -157,7 +168,7 @@ if (-not $Yes) {
 
 # -- Commit, tag, push, release -----------------------------------------------
 Step "Committing and tagging v$Version"
-git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj "release_notes_v$Version.md"
+git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj Properties\GeneratedVersionInfo.cs "release_notes_v$Version.md"
 git commit -m "release: v$Version"
 Assert-Exit 'git commit'
 git tag "v$Version"
