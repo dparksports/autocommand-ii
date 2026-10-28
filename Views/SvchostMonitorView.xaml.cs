@@ -579,6 +579,32 @@ namespace AutoCommand.Views
                 IgnoreProcess(item.ProcessName);
         }
 
+        // ── DNS resolve-state support (tooltips live on the Host column) ──
+
+        private void ResolveNowMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+            MonitorStatusText.Text = DnsResolutionService.Instance.ResolveNow(item.RemoteIp)
+                ? "Urgent re-lookup queued for " + item.RemoteIp +
+                  " — the row updates itself when the answer lands."
+                : item.RemoteIp + " already resolves — nothing to retry.";
+        }
+
+        private void RetryDnsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var unresolved = _uiCollection
+                .Where(i => !i.IsResolved && !string.IsNullOrEmpty(i.RemoteIp))
+                .Select(i => i.RemoteIp)
+                .Distinct()
+                .ToList();
+            DnsResolutionService.Instance.RetryUnresolved(unresolved);
+            foreach (var item in _uiCollection.Where(i => !i.IsResolved))
+                _dnsService.EnqueueForResolution(item);
+            MonitorStatusText.Text = unresolved.Count > 0
+                ? "Re-queued " + unresolved.Count + " unresolved lookup(s) — cached 'no answer' results were forgotten; polite pacing applies."
+                : "Nothing to retry — every row on this view is resolved.";
+        }
+
         private void RowMenu_Opened(object sender, RoutedEventArgs e)
         {
             var sel = SvchostGrid.SelectedItem as SvchostMonitorItem;
@@ -588,6 +614,11 @@ namespace AutoCommand.Views
             TracePidMenuItem.Header = traceable
                 ? $"🔎 Trace PID {sel.ProcessId} — how was it spawned?"
                 : "🔎 Trace: how was this PID spawned?";
+
+            ResolveNowMenuItem.IsEnabled = sel != null &&
+                System.Net.IPAddress.TryParse(sel.RemoteIp, out _) && !sel.IsResolved;
+            ResolveNowMenuItem.Visibility = ResolveNowMenuItem.IsEnabled
+                ? Visibility.Visible : Visibility.Collapsed;
 
             bool revealable = sel != null && sel.ProcessId > 0;
             RevealNameMenuItem.IsEnabled = revealable;

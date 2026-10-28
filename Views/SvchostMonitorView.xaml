@@ -25,7 +25,9 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal">
                 <Button x:Name="SetupSysmonBtn" Content="🛠 Setup Sysmon" Style="{StaticResource PrimaryButton}" Click="SetupSysmonBtn_Click" Margin="0,0,8,0" Visibility="Collapsed"/>
                 <Button x:Name="ToggleMonitorBtn" Content="Start Monitor" Style="{StaticResource PrimaryButton}" Click="ToggleMonitorBtn_Click" Margin="0,0,8,0"/>
-                <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click"/>
+                <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click" Margin="0,0,8,0"/>
+                <Button x:Name="RetryDnsBtn" Content="⟳ Retry unresolved DNS" Style="{StaticResource PrimaryButton}" Click="RetryDnsBtn_Click"
+                        ToolTip="Forget cached 'no answer' results and re-queue every unresolved hostname/org lookup on this view (polite pacing applies)"/>
             </StackPanel>
         </Grid>
 
@@ -150,6 +152,7 @@
                 <ContextMenu Opened="RowMenu_Opened">
                     <MenuItem x:Name="TracePidMenuItem" Header="🔎 Trace: how was this PID spawned?" Click="TracePidMenuItem_Click"/>
                     <MenuItem x:Name="RevealNameMenuItem" Header="🏷 Reveal real process name (Sysmon record)" Click="RevealNameMenuItem_Click"/>
+                    <MenuItem x:Name="ResolveNowMenuItem" Header="🔄 Resolve now (re-ask hostname/org)" Click="ResolveNowMenuItem_Click"/>
                     <Separator/>
                     <MenuItem x:Name="IgnoreRowMenuItem" Header="🚫 Ignore this process" Click="IgnoreRowMenuItem_Click"/>
                     <Separator/>
@@ -231,7 +234,9 @@
                 <DataGridTemplateColumn Header="Host" Width="220">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding HostnameDisplay}">
+                            <TextBlock Text="{Binding HostnameDisplay}"
+                                       ToolTipService.ToolTip="{Binding ResolveStateText}"
+                                       ToolTipService.InitialShowDelay="200">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
