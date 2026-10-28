@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
+using AutoCommand.Services;
 
 namespace AutoCommand.Models
 {
@@ -55,6 +56,7 @@ namespace AutoCommand.Models
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsResolved));
                 OnPropertyChanged(nameof(HostnameDisplay));
+                OnPropertyChanged(nameof(ResolveStateText));
             }
         }
 
@@ -68,6 +70,12 @@ namespace AutoCommand.Models
         /// <summary>Friendly display — shows italic '(resolving…)' when not yet resolved.</summary>
         public string HostnameDisplay =>
             IsResolved ? _hostname : string.IsNullOrEmpty(_hostname) ? "resolving…" : _hostname;
+
+        /// <summary>Why the hostname is (still) unresolved — the Host
+        /// column's tooltip text. Re-read on every enrichment tick (via
+        /// RefreshLastSeenDisplay) so hover state stays honest.</summary>
+        public string ResolveStateText =>
+            DnsResolutionService.Instance.DescribeResolveState(RemoteIp);
 
         public string ProcessName
         {
@@ -592,6 +600,7 @@ namespace AutoCommand.Models
             OnPropertyChanged(nameof(LastSeenDisplay));
             OnPropertyChanged(nameof(IsStale));
             OnPropertyChanged(nameof(IsTxOnly));
+            OnPropertyChanged(nameof(ResolveStateText));
         }
 
         protected void OnPropertyChanged([CallerMemberName] string name = null)
