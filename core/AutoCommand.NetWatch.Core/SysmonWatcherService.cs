@@ -276,10 +276,33 @@ namespace AutoCommand.Services
             return seeded;
         }
 
+        /// <summary>UTC ticks (DateTime.ToBinary) of the last Sysmon event
+        /// any watcher accepted — the traffic-idle signal for the DNS idle
+        /// reconciler. Static: the watcher instance is owned by the monitor
+        /// view, but the quiet-period signal is app-wide. 0 until the first
+        /// event.</summary>
+        private static long _lastEventTicks;
+
+        /// <summary>How long since the last Sysmon event — the proxy for
+        /// "the machine's traffic is idle". Deliberately huge before the
+        /// first event ever arrives (a machine producing no events is as
+        /// idle as it gets).</summary>
+        public static TimeSpan QuietFor
+        {
+            get
+            {
+                long ticks = Interlocked.Read(ref _lastEventTicks);
+                return ticks == 0
+                    ? TimeSpan.FromDays(365)
+                    : DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc);
+            }
+        }
+
         private void Watcher_EventRecordWritten(object sender, EventRecordWrittenEventArgs e)
         {
             try
             {
+                Volatile.Write(ref _lastEventTicks, DateTime.UtcNow.ToBinary());
                 if (e.EventRecord == null) return;
 
                 string xml = e.EventRecord.ToXml();

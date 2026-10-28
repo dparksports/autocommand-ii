@@ -321,6 +321,12 @@ namespace AutoCommand
                     // (startup sweep + retire pass need no event channel).
                     Services.AppBlockCoverageService.Instance.Start();
 
+                    // drain the DNS backlog when the machine is quiet: no new
+                    // Sysmon events for a while = traffic idle = re-ask the
+                    // unresolved hostnames/orgs in small polite batches
+                    Services.DnsResolutionService.Instance.StartIdleReconciliation(
+                        () => Services.SysmonWatcherService.QuietFor);
+
                     var installer = new Services.SysmonInstallerService();
                     if (installer.DetectInstallState() != Services.SysmonInstallState.Installed)
                         return; // nothing installed — the install path sizes and archives it

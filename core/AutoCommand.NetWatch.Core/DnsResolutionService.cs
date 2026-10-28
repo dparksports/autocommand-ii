@@ -105,6 +105,27 @@ namespace AutoCommand.Services
         private static readonly TimeSpan ForwardCacheTtl = TimeSpan.FromMinutes(60);
         private static readonly TimeSpan ForwardNegativeTtl = TimeSpan.FromMinutes(10);
 
+        // ── idle reconciliation: drains unresolved addresses when the
+        //    machine's traffic is quiet (no new Sysmon events) ────────────
+
+        /// <summary>No new Sysmon events for this long counts as "traffic idle".</summary>
+        internal static readonly TimeSpan IdleThreshold = TimeSpan.FromMinutes(5);
+
+        /// <summary>How often the reconciler re-checks the idle condition.</summary>
+        internal static readonly TimeSpan IdleTick = TimeSpan.FromMinutes(1);
+
+        /// <summary>Addresses per idle episode. The paced worker drains them
+        /// at the provider's normal rate — never the urgent path.</summary>
+        internal const int IdleBatchSize = 8;
+
+        /// <summary>Rest between idle episodes, even while still idle.</summary>
+        internal static readonly TimeSpan IdleBatchCooldown = TimeSpan.FromMinutes(2);
+
+        /// <summary>Per-session give-up count for one address: permanently
+        /// unanswerable addresses stop being retried until their cache
+        /// entries age out naturally (24 h) and re-enter the set fresh.</summary>
+        internal const int IdleMaxAttemptsPerIp = 5;
+
         // -----------------------------------------------------------------------
         // Fields
         // -----------------------------------------------------------------------
@@ -149,6 +170,11 @@ namespace AutoCommand.Services
         /// "resolving" state for DescribeResolveState (a Channel cannot be
         /// peeked without consuming).</summary>
         private readonly ConcurrentDictionary<string, byte> _pendingIps = new();
+
+        // idle reconciliation state
+        private readonly ConcurrentDictionary<string, int> _idleAttempts = new();
+        private int _idleStarted;
+        private Func<TimeSpan> _idleFor = static () => TimeSpan.FromDays(365);
 
         // -----------------------------------------------------------------------
         // Public API
@@ -310,6 +336,84 @@ namespace AutoCommand.Services
             var remaining = _geoBackoff - (DateTime.UtcNow - _lastGeoCall);
             return Math.Max(0, Math.Ceiling(remaining.TotalMinutes)).ToString("0");
         }
+
+        // ── idle reconciliation ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Every address whose cached answer is a placeholder (no real
+        /// hostname yet), oldest attempts first — the idle reconciler's work
+        /// queue. The hostname cache already persists these placeholders, so
+        /// the set survives restarts: "collect all unresolved IPs" falls out
+        /// of the existing cache rather than a second ledger.
+        /// </summary>
+        public IReadOnlyList<string> UnresolvedIps =>
+            _cache.Where(kv => IsUnresolvedHostname(kv.Value.Hostname))
+                  .OrderBy(kv => kv.Value.ResolvedAt)
+                  .Select(kv => kv.Key)
+                  .ToList();
+
+        /// <summary>
+        /// Starts the idle reconciler: whenever <paramref name="idleFor"/>
+        /// reports the machine quiet past <see cref="IdleThreshold"/> (the
+        /// app wires this to the Sysmon watcher's quiet period), drain the
+        /// unresolved set in small batches through the normal paced
+        /// pipeline — never the urgent path; normal spacing and backoff
+        /// throughout. Idempotent.
+        /// </summary>
+        public void StartIdleReconciliation(Func<TimeSpan> idleFor)
+        {
+            if (Interlocked.Exchange(ref _idleStarted, 1) == 1) return;
+            _idleFor = idleFor ?? _idleFor;
+            _ = Task.Run(() => IdleLoopAsync(_cts.Token));
+        }
+
+        private async Task IdleLoopAsync(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try { await Task.Delay(IdleTick, ct); } catch (OperationCanceledException) { break; }
+                try
+                {
+                    if (_idleFor() < IdleThreshold) continue;
+                    if (TakeIdleBatch() == 0) continue;
+                    // still idle? wait out the cooldown before the next batch —
+                    // a busy machine cancels the wait and the loop re-checks
+                    await Task.Delay(IdleBatchCooldown, ct);
+                }
+                catch (OperationCanceledException) { break; }
+                catch { /* an idle pass is opportunistic — never fatal */ }
+            }
+        }
+
+        /// <summary>One idle episode: hand a batch of oldest unresolved
+        /// addresses to the normal paced pipeline. Fresh negative answers
+        /// are skipped (they were a definitive "no" less than a day ago)
+        /// and addresses past the per-session attempt cap are left until
+        /// their cache entries age out naturally. Returns the batch size.</summary>
+        private int TakeIdleBatch()
+        {
+            int queued = 0;
+            foreach (var ip in UnresolvedIps)
+            {
+                if (queued >= IdleBatchSize) break;
+                if (_idleAttempts.TryGetValue(ip, out var tries) && tries >= IdleMaxAttemptsPerIp) continue;
+                if (_geoCache.TryGetValue(GeoPrefixKey(ip), out var geo) &&
+                    geo.Negative && !geo.IsStale(GeoNegativeTtl)) continue;
+
+                _idleAttempts[ip] = tries + 1;
+                _cache.TryRemove(ip, out _);   // placeholder out — the pipeline must re-ask
+                _pendingIps[ip] = 1;
+                _queue.Writer.TryWrite(new AdHocResolve(ip));
+                queued++;
+            }
+            return queued;
+        }
+
+        /// <summary>Test seam: one idle episode with an injected idle
+        /// reading, bypassing the loop's timer. Internal for
+        /// NetWatchSelfTest (InternalsVisibleTo).</summary>
+        internal int RunIdlePassForTest(Func<TimeSpan> idleFor) =>
+            idleFor() >= IdleThreshold ? TakeIdleBatch() : 0;
 
         public void Dispose()
         {

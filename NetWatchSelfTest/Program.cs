@@ -167,5 +167,25 @@ Check("queued address reports resolving",
       dns.DescribeResolveState("203.0.113.7"));
 Check("RetryUnresolved re-queues the given address", dns.RetryUnresolved(new[] { "203.0.113.7" }) == 1);
 
+// ─────────────────────────────────────────────────────────────────────
+// 5. Idle reconciliation — candidate collection + batch pick (no
+//    network; the worker is never started, so queued items just sit)
+// ─────────────────────────────────────────────────────────────────────
+dns.SeedFromSysmon("203.0.113.9", "203.0.113.9");   // raw-IP placeholder → candidate
+dns.SeedFromSysmon("198.51.100.4", "example.test"); // real name → NOT a candidate
+Check("UnresolvedIps lists placeholders only",
+      dns.UnresolvedIps.Contains("203.0.113.9") && !dns.UnresolvedIps.Contains("198.51.100.4"),
+      string.Join(",", dns.UnresolvedIps));
+Check("idle pass refuses while traffic is busy",
+      dns.RunIdlePassForTest(() => TimeSpan.FromSeconds(10)) == 0);
+int took = dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10));
+Check("idle pass queues the candidate when idle", took == 1, took.ToString());
+Check("queued-by-idle address reports resolving",
+      dns.DescribeResolveState("203.0.113.9")?.StartsWith("resolving") == true,
+      dns.DescribeResolveState("203.0.113.9"));
+dns.SeedFromSysmon("203.0.113.8", "203.0.113.8");   // second placeholder
+Check("idle batch honors the batch size (all candidates fit)",
+      dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10)) == 1);
+
 Console.WriteLine(failures == 0 ? "\nALL CHECKS PASSED" : $"\n{failures} CHECK(S) FAILED");
 return failures == 0 ? 0 : 1;

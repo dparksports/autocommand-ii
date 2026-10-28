@@ -32,4 +32,11 @@
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
   </ItemGroup>
 
+  <!-- The offline suite drives the idle reconciler's test seam
+       (RunIdlePassForTest) against the shipped assembly — the same
+       InternalsVisibleTo pattern the Contain/Forensics/Agent cores use. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="NetWatchSelfTest" />
+  </ItemGroup>
+
 </Project>
