@@ -338,9 +338,13 @@ Rules of the road:
   explicit NetWatch ProjectReference their transitive lean-in was hiding,
   `AutoCommand.Models` kept deliberately shared; (7) the geo engine split
   out of DnsResolutionService (`DnsResolutionService.Geo.cs`, partial
-  class); (8) `TlsKeylogService.DirOverride` removed (dead settable
-  global, zero users) and TraceProjectStore converted to the BlocksLedger
-  pattern (`TraceProjectLibrary` instance + static facade). View
+  class); (8) `TlsKeylogService.DirOverride` removed — the "dead global"
+  guess was wrong: PyTraceSelfTest used it three times, so the seam
+  migrated properly (TlsKeylogStore instance core with
+  constructor-injected dir; PyTraceSelfTest sweeps a temp dir via
+  `new TlsKeylogService(dir)` — never real user state) — and
+  TraceProjectStore converted to the BlocksLedger pattern
+  (`TraceProjectLibrary` instance + static facade). View
   conversions remain closed by the 2026-10-27 re-survey — every repeating
   timer is gated, self-gating, or on the do-not-gate list; convert
   opportunistically only. AgentHost stays framework-dependent by design
