@@ -313,6 +313,33 @@ namespace AutoCommand.NetWatch.Core
                 var eventData = doc.Root?.Element(ns + "EventData");
                 if (eventData == null) return;
 
+                // DNS queries (EID 22): name the IPs a process just resolved —
+                // the connect path's DestinationHostname only exists on some
+                // EID 3 events. Seeding is targeted (only already-tracked IPs)
+                // so the hostname cache never fills with never-connected
+                // domains. Recording is NOT done here — DnsQueryFeedService
+                // owns its own EID 22 subscription and a second push would
+                // double-count every query.
+                int eid = 0;
+                var eidEl = doc.Root?.Element(ns + "System")?.Element(ns + "EventID");
+                if (eidEl != null) int.TryParse(eidEl.Value, out eid);
+                if (eid == 22)
+                {
+                    string qName = string.Empty, qResults = string.Empty;
+                    foreach (var data in eventData.Elements(ns + "Data"))
+                    {
+                        string name = data.Attribute("Name")?.Value;
+                        if (name == "QueryName") qName = data.Value;
+                        else if (name == "QueryResults") qResults = data.Value;
+                    }
+                    if (!string.IsNullOrEmpty(qName) && qName != "-")
+                        foreach (var ip in DnsQueryFeedService.ParseResultIps(qResults))
+                            if (_trackedIps.ContainsKey(ip))
+                                _dnsService.SeedFromSysmon(ip, qName);
+                    return; // a DNS query is not a connect event — nothing further to do
+                }
+
+
                 string image = string.Empty;
                 string processId = string.Empty;
                 string destIp = string.Empty;
