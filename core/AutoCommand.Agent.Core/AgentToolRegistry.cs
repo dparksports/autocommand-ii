@@ -99,6 +99,20 @@ namespace AutoCommand.Services
                 a => ClassifyIp(a)),
 
             new Tool(
+                "lookup_ip",
+                "Resolve one IP the way AutoCommand's rows do: hostname (or none), range classification, " +
+                "org/geo label with its cache state (fresh / negative-cached with a retry time / throttled " +
+                "with a retry estimate / local-by-design) — ip-api throttled at the free tier, with an " +
+                "RDAP registry fallback — plus blocked-list status. force=true marks the lookup " +
+                "user-initiated: it skips the inter-call spacing for this one lookup (cooldowns still " +
+                "apply) and re-asks even a negative-cached answer; the fresh answer lands in the cache " +
+                "for every row. Read-only.",
+                Schema(("ip", "IPv4 address to resolve", true),
+                       ("force", "true = user-initiated urgent lookup", false)),
+                false,
+                a => LookupIp(a)),
+
+            new Tool(
                 "get_transmissions",
                 "Recent recorded TLS transmissions (the Transmissions tab's archive): per conversation — process, " +
                 "pid, destination, SNI hostname, RDAP provider, wire and decrypted byte counts, status " +
@@ -602,6 +616,36 @@ namespace AutoCommand.Services
             {
                 return "trace_analyze failed: " + ex.Message;
             }
+        }
+
+        private static string LookupIp(JsonObject a)
+        {
+            string ip = a["ip"]?.GetValue<string>() ?? "";
+            if (!System.Net.IPAddress.TryParse(ip, out _))
+                return ToJson(new JsonObject { ["error"] = "'" + ip + "' is not an IP address" });
+
+            bool force = a["force"] is JsonNode fb && fb.GetValue<bool>();
+            var dns = DnsResolutionService.Instance;
+            if (force) dns.ResolveNow(ip);   // urgent re-ask; the fresh answer lands in the shared cache
+
+            EnsureFeedStarted();
+            var blocked = BlockHitFeedService.Instance.BlockedIp(ip);
+            var o = new JsonObject
+            {
+                ["ip"] = ip,
+                ["hostname_or_org"] = dns.GetCachedHostname(ip),
+                ["classification"] = IpClassifier.Classify(ip),
+                ["microsoft_infra"] = IpClassifier.IsMicrosoftInfra(ip),
+                ["resolve_state"] = dns.DescribeResolveState(ip),
+                ["lookup"] = force ? "user-initiated (force)" : "cache / refresh pass",
+                ["blocked"] = blocked != null,
+            };
+            if (blocked != null)
+                o["blocked_rules"] = $"{blocked.EnabledRules}/{blocked.Rules} enabled";
+            if (force)
+                o["note"] = "Urgent re-lookup queued — call again in a few seconds for the fresh answer " +
+                            "(it lands in the cache and every monitor row's tooltip).";
+            return ToJson(o);
         }
 
         private static string ClassifyIp(JsonObject a)
