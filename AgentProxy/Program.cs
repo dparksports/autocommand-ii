@@ -35,6 +35,7 @@ const string OfflineToolsJson = """
   { "name": "trace_analyze", "description": "svchost trace capture + pattern analysis (needs an active session)." },
   { "name": "classify_ip", "description": "Destination-range classification, block-warning text and blocked-list status (needs an active session)." },
   { "name": "lookup_ip", "description": "Resolve one IP: hostname, range classification, org/geo with its cache state (ip-api throttled + RDAP fallback), blocked-list status; force=true re-asks urgently (needs an active session)." },
+  { "name": "list_dns_queries", "description": "The DNS Queries feed: who resolved which hostname, how often, beacon regularity, resolved addresses with classification and blocked status (needs an active session)." },
   { "name": "list_blocks", "description": "Inventory of every AutoCommand firewall block with recent hit counts (needs an active session)." },
   { "name": "list_recent_block_hits", "description": "Live process-attributed feed of connects hitting firewall blocks — the 'who is being blocked' view (needs an active session)." },
   { "name": "verify_block_containment", "description": "Prove blocked processes are silent, not just trying: block attempts joined against live sockets and archived transmissions since block creation (needs an active session)." },

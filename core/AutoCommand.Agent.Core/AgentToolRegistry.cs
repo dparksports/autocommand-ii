@@ -125,6 +125,23 @@ namespace AutoCommand.Agent.Core
                 a => LookupIp(a)),
 
             new Tool(
+                "list_dns_queries",
+                "The DNS Queries tab's feed: which process resolved which hostname, how often, " +
+                "when, what addresses came back (with range classification and blocked-list " +
+                "status per address), and beacon regularity per domain (gap_cv — lower means " +
+                "the machine asks on a metronome; beacons look like that, scheduled updaters too). " +
+                "domain=true (default) groups by hostname; domain=false groups by process. " +
+                "contains filters on domain or process. Honest limits: DNS-over-HTTPS lookups " +
+                "produce no events — a query FOR a known encrypted resolver is flagged, because " +
+                "the feed goes blind for that process after it. Read-only.",
+                Schema(("minutes", "Look-back window (default 60, cap 1440)", false),
+                       ("domain", "true = group by hostname (default); false = group by process", false),
+                       ("contains", "Only rows whose domain or process contains this text", false),
+                       ("max", "Maximum rows (default 50, cap 200)", false)),
+                false,
+                a => ListDnsQueries(a)),
+
+            new Tool(
                 "get_transmissions",
                 "Recent recorded TLS transmissions (the Transmissions tab's archive): per conversation — process, " +
                 "pid, destination, SNI hostname, RDAP provider, wire and decrypted byte counts, status " +
@@ -657,6 +674,77 @@ namespace AutoCommand.Agent.Core
             if (force)
                 o["note"] = "Urgent re-lookup queued — call again in a few seconds for the fresh answer " +
                             "(it lands in the cache and every monitor row's tooltip).";
+            return ToJson(o);
+        }
+
+        private static string ListDnsQueries(JsonObject a)
+        {
+            int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 60, 1, 1440);
+            int max = Math.Clamp(a["max"]?.GetValue<int>() ?? 50, 1, 200);
+            string contains = a["contains"]?.GetValue<string>();
+            bool byProcess = a["domain"] is JsonNode domainFlag && !domainFlag.GetValue<bool>();
+
+            DnsQueryFeedService.Instance.Start();
+            var feed = DnsQueryFeedService.Instance;
+            var o = new JsonObject
+            {
+                ["window_minutes"] = minutes,
+                ["feed_queries_24h"] = feed.QueryCount,
+                ["note"] = "DNS-over-HTTPS lookups produce no events: a query FOR a known " +
+                           "encrypted resolver (encrypted_resolver=true) means the feed goes " +
+                           "blind for that process after it. gap_cv: inter-query gap variation " +
+                           "— lower = more regular; beacons look like that, scheduled updaters too.",
+            };
+
+            var rows = new JsonArray();
+            if (byProcess)
+            {
+                o["facet"] = "per process";
+                foreach (var p in feed.ProcessAggregates(minutes, max, contains))
+                    rows.Add(new JsonObject
+                    {
+                        ["process"] = p.Process,
+                        ["pid"] = p.Pid,
+                        ["domains"] = p.DistinctDomains,
+                        ["queries"] = p.TotalQueries,
+                        ["first"] = p.FirstUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                        ["last"] = p.LastUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                        ["top_domains"] = new JsonArray(p.TopDomains.Select(x => (JsonNode)x).ToArray()),
+                    });
+            }
+            else
+            {
+                o["facet"] = "per domain";
+                foreach (var dom in feed.DomainAggregates(minutes, max, contains))
+                {
+                    var row = new JsonObject
+                    {
+                        ["domain"] = dom.QueryName,
+                        ["queries"] = dom.TotalQueries,
+                        ["asked_by"] = new JsonArray(dom.RequestedBy
+                            .Select(r => (JsonNode)$"{r.Process}({r.Pid}) x{r.Count}").ToArray()),
+                        ["first"] = dom.FirstUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                        ["last"] = dom.LastUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                        ["encrypted_resolver"] = dom.EncryptedResolverHit,
+                    };
+                    if (dom.GapCv != null) row["gap_cv"] = Math.Round(dom.GapCv.Value, 2);
+
+                    var ips = new JsonArray();
+                    foreach (var ip in dom.ResolvedIps.Take(8))
+                    {
+                        var blocked = BlockHitFeedService.Instance.BlockedIp(ip);
+                        ips.Add(new JsonObject
+                        {
+                            ["ip"] = ip,
+                            ["classification"] = IpClassifier.Classify(ip),
+                            ["blocked"] = blocked != null,
+                        });
+                    }
+                    row["resolved"] = ips;
+                    rows.Add(row);
+                }
+            }
+            o["rows"] = rows;
             return ToJson(o);
         }
 
