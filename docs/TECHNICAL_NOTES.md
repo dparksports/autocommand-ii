@@ -24,11 +24,23 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 |---|---|
 | Connection events | Sysmon — `EventLogWatcher` over the `Microsoft-Windows-Sysmon/Operational` channel; the installer configures the manifest via `wevtutil` and can repair inconsistent installs |
 | Packet counters | Raw-socket sniffer — `IOControlCode.ReceiveAll` (SIO_RCVALL) on raw IP sockets, one IPv4 plus a best-effort IPv6 socket; no WinPcap/Npcap dependency |
-| Name resolution | Background reverse-DNS service with a persistent JSON cache |
+| Name resolution | Background reverse-DNS + org-label service — see **DNS & org resolution** below |
 | Task attribution | taskhostw instance GUID on the command line correlated with Task Scheduler history (the channel is enabled once if off); COM-handler tasks get their ClassId resolved through `HKCR\CLSID\{…}\InprocServer32` to the handler DLL, flagged when unregistered |
 | Live ordering | WPF `ICollectionView` live sorting on the row's `LastSeen` timestamp; stale rows detected off a UI timer |
 | TX-only filter | Off-by-default view lens: `ICollectionView.Filter` + live filtering over a time-gated `IsTxOnly` flag (sent bytes > 0, received = 0, row ≥ 30 s old — the grace keeps mid-handshake rows from flashing, since rows seed at 0/0 and Rx only lands when a reply crosses the sniffer); the checkbox label carries the live count while the lens is off; a view lens only — ingestion, the CSV export and the AI-audit context all read the unfiltered source |
 | Row lifecycle | `LastSeen` seeded from the Sysmon event's UTC time (one-shot connections still get a real timestamp); the UI timer marks rows "— exited" once their PID is gone, and a later Sysmon event re-attributes the row to a new PID on the same remote IP |
+
+### DNS & org resolution (the Host column)
+
+| Concern | Technology |
+|---|---|
+| Hostnames | Reverse DNS with a persistent cache (24 h TTL); Sysmon-provided names are seeded directly |
+| Org/geo labels | Cached **per /24 prefix** (14 d positive, 24 h negative) so one answer covers a whole rotating fleet block. Source cascade, cheapest first: in-app range classifier → non-routable ranges (answered, no lookup at all) → prefix cache → ip-api.com (throttled at the free tier's 45 req/min, backoff doubling to 5 min on 429/timeouts and resetting on success) → **RDAP registry fallback** (the same IANA-bootstrap-routed engine the Blocked tab uses — its own cache, its own pacing, zero cost to the ip-api budget) |
+| Transient failures | Cache nothing — a wrong "unresolved" must not outlive the outage; once the backoff window clears, a later pass retries |
+| Why an IP shows no name | Every Host cell carries the reason in its tooltip: local-by-design, resolving (with queue depth), throttled (with a retry estimate), negative-cached (with the retry time), or resolved (with when) |
+| User control | Right-click → **Resolve now** (user-initiated: skips the inter-call spacing for that one lookup; cooldowns still apply) and **⟳ Retry unresolved DNS** (forgets negative answers and raw-IP placeholders, resets the backoff, re-queues the view's unresolved rows at normal pacing) |
+| Cache files | `C:\ProgramData\AutoCommand\dns_cache.json`, `geo_prefix_cache.json`, `dns_forward_cache.json` — machine-wide, so they survive install-folder moves (a legacy beside-the-exe cache is copied once on first run) |
+| AI access | `lookup_ip` on the bridge reports the same cascade and state; `force: true` is the urgent path |
 
 ### Sysmon Audit
 | Concern | Technology |
@@ -155,7 +167,7 @@ Process Monitor, where it can be blocked like any other destination.
 | `<app>\check_interval.txt` | Security Enforcer cadence |
 | `<app>\update_freeze.json` + `freeze_backups\` | Frozen self-updaters and their ACL snapshots |
 | `<app>\telemetry_state.json` | Snapshots of the settings changed by telemetry opt-outs |
-| `<app>\dns_forward_cache.json` | Forward-DNS cache (hostname → IPs) for the BITS tab's "where do they connect"; 60 min TTL, 10 min negative TTL |
+| `C:\ProgramData\AutoCommand\dns_cache.json` + `geo_prefix_cache.json` + `dns_forward_cache.json` | Hostname, org-prefix and forward-DNS caches (machine-wide; a legacy beside-the-exe copy is migrated on first run). Forward cache: 60 min TTL, 10 min negative TTL |
 | `%LOCALAPPDATA%\AutoCommand\pytrace\` | Python Spawns tab state — see below |
 | `%LOCALAPPDATA%\AutoCommand\bits\` | BITS Transfers tab state — see below |
 
