@@ -31,4 +31,11 @@
     <ProjectReference Include="..\core\AutoCommand.Agent.Core\AutoCommand.Agent.Core.csproj" />
   </ItemGroup>
 
+  <!-- Ships beside the exe in the zip's AgentHost\ folder: the .NET 10
+       runtime requirement and the no-mutating-tools rule, where the user
+       looks when a framework-dependent exe fails to start. -->
+  <ItemGroup>
+    <None Include="README.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
