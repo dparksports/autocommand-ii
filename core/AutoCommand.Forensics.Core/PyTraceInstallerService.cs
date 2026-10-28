@@ -24,6 +24,15 @@ namespace AutoCommand.Forensics.Core
     /// </summary>
     public class PyTraceInstallerService
     {
+        // Keylog-hygiene target: null = the machine pytrace dir; the self-test
+        // injects a temp dir so a suite never touches real user state.
+        private readonly TlsKeylogStore _keylogStore = new TlsKeylogStore();
+
+        public PyTraceInstallerService(string keylogDir = null)
+        {
+            if (keylogDir != null) _keylogStore = new TlsKeylogStore(keylogDir);
+        }
+
         public const string ModuleName = "PyTraceHook_ac";
         public static string ManifestPath => Path.Combine(PyTraceReaderService.TraceDir, "instrumented.json");
 
@@ -447,7 +456,7 @@ namespace AutoCommand.Forensics.Core
                 string payload = ReadPayloadText();
                 Directory.CreateDirectory(env.SitePackages);
                 Directory.CreateDirectory(PyTraceReaderService.TraceDir);
-                TlsKeylogService.EnsureHygiene();
+                _keylogStore.EnsureHygiene();
 
                 string modulePath = Path.Combine(env.SitePackages, ModuleName + ".py");
                 string pthPath = Path.Combine(env.SitePackages, ModuleName + ".pth");

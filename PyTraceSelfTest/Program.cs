@@ -31,8 +31,7 @@ namespace PyTraceSelfTest
                 Console.WriteLine("sweep12 <client.bin> <server.bin> <keylog-dir>");
                 return 2;
             }
-            TlsKeylogService.DirOverride = args[3];
-            var keylog = new TlsKeylogService();
+            var keylog = new TlsKeylogService(args[3]);
             keylog.Refresh();
 
             byte[] client = File.ReadAllBytes(args[1]);
@@ -273,8 +272,8 @@ namespace PyTraceSelfTest
 
         private static int Discover(string[] args)
         {
-            if (args.Length > 1) TlsKeylogService.DirOverride = args[1];
-            var installer = new PyTraceInstallerService();
+            var keylogDir = args.Length > 1 ? args[1] : null;
+            var installer = new PyTraceInstallerService(keylogDir);
 
             Console.WriteLine("=== Tier 1: registry / PATH / Store / conda / uv / pyenv-win / scoop / choco ===");
             var tier1 = installer.DiscoverEnvironments();
@@ -414,8 +413,7 @@ namespace PyTraceSelfTest
                 return 2;
             }
 
-            TlsKeylogService.DirOverride = args[3];
-            var keylog = new TlsKeylogService();
+            var keylog = new TlsKeylogService(args[3]);
             keylog.Refresh();
             Console.WriteLine($"keylog sessions: {keylog.SessionCount}");
 
