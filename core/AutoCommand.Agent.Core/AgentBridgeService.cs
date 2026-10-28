@@ -1,4 +1,10 @@
 using System.Collections.Generic;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -11,7 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Sdk;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Agent.Core
 {
     /// <summary>
     /// The AI-access bridge: a loopback-only MCP endpoint hosted INSIDE the

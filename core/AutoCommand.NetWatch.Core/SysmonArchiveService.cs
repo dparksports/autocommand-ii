@@ -1,4 +1,5 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
@@ -7,7 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Xml.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// App-managed archive of the Sysmon Operational channel. The channel

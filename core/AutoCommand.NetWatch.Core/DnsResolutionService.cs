@@ -1,4 +1,5 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +12,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// Resolves IP → hostname in the background, with:

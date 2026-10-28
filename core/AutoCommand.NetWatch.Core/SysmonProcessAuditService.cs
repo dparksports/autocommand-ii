@@ -1,10 +1,11 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>One Sysmon EventID 1 (ProcessCreate) record.</summary>
     public class SysmonProcessEvent

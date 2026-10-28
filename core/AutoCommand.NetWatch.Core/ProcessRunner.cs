@@ -1,9 +1,10 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Helpers
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// Shared utility for running native executables (netsh, powercfg, bcdedit, etc.)

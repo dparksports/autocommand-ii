@@ -1,9 +1,13 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace AutoCommand.Helpers
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Removes the Mark-of-the-Web (the Zone.Identifier alternate data

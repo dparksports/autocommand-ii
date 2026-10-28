@@ -11,12 +11,14 @@
 // Nothing touches the real %LOCALAPPDATA% store, the hosts file, netsh, or
 // Defender; those halves are exercised by the app itself.
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AutoCommand.Services;
 
 int failures = 0;
 void Check(string name, bool pass, string evidence = "")

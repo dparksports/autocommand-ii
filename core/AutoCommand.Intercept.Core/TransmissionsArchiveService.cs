@@ -1,11 +1,13 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// On-disk store behind the Transmissions tab, mirroring the Sysmon

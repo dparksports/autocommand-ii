@@ -1,11 +1,13 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// Decrypts a captured TLS flow in-tab, using the SSLKEYLOGFILE secrets

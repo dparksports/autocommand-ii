@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
@@ -9,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Keeps name-blocked apps blocked wherever they run from. Windows Firewall

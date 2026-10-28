@@ -1,10 +1,11 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// Atomic enumeration of established TCP connections with their owning

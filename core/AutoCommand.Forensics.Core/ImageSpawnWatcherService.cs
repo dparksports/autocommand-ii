@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
@@ -7,7 +11,7 @@ using System.Linq;
 using System.Xml.Linq;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Real-time tracing of process creations for a chosen image family

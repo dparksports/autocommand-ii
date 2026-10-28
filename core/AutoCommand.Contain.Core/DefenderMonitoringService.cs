@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
@@ -8,7 +11,7 @@ using System.Management;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Live monitoring half of the Windows Defender tab:

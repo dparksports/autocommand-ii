@@ -1,9 +1,11 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// The user's "stop telling me about this app" list for the

@@ -1,4 +1,4 @@
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// One-line plain-English descriptions for the handful of helper

@@ -1,8 +1,12 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 
-namespace AutoCommand.Helpers
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Native Authenticode verification via WinVerifyTrust — used to validate

@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,9 +9,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AutoCommand.Helpers;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>An app that can update itself in place, discovered or frozen.</summary>
     public class UpdateFreezeTarget

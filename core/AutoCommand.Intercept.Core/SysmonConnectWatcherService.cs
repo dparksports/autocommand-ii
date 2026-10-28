@@ -1,9 +1,11 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.Xml.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// Watches Sysmon EID 3 (network connect) for ALL processes — no image

@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -7,7 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Reads — and where safe adjusts — Windows Defender scan preferences via

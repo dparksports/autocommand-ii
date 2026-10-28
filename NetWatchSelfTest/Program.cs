@@ -4,13 +4,13 @@
 // Archive persistence runs against a temp dir; nothing touches the real
 // %LOCALAPPDATA% archive or the live Sysmon channel.
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using AutoCommand.Services;
 
 int failures = 0;
 void Check(string name, bool pass, string evidence = "")

@@ -1,8 +1,11 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Sitedoctor.Core
 {
     /// <summary>
     /// Weighs the passive fingerprint and the active probe report into one

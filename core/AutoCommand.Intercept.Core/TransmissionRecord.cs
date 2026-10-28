@@ -1,4 +1,6 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;

@@ -1,4 +1,6 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// Retains (instead of discarding) the TCP payloads crossing the NIC on a

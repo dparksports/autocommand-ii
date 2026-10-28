@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,7 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Joins live Sysmon EID 3 connect attempts (every process, full 4-tuple)

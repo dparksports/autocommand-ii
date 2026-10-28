@@ -1,11 +1,17 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Agent.Core
 {
     /// <summary>
     /// Persistence for trace projects: one JSON file per project under

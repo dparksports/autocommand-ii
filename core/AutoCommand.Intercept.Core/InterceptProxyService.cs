@@ -1,4 +1,6 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,7 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// Layer 3: a local TLS-terminating intercept proxy, scoped to ONE pid

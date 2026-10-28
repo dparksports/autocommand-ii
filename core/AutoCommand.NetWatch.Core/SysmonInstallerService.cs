@@ -1,13 +1,13 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using AutoCommand.Helpers;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     public enum SysmonInstallState
     {

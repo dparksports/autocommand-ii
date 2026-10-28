@@ -1,7 +1,11 @@
 using System.Net;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Net.Sockets;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// The svchost-trace destination classifier: coarse, session-verified

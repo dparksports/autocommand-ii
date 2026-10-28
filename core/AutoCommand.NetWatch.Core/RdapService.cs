@@ -1,10 +1,11 @@
 using System.IO;
+using AutoCommand.NetWatch.Core;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// RDAP client with a persistent, block-keyed cache, IANA-bootstrap

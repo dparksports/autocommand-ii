@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -502,7 +508,7 @@ namespace AutoCommand.Views
             int pid = item.ProcessId;
             try
             {
-                var id = await Task.Run(() => Services.SvchostIdentityService.Resolve(pid));
+                var id = await Task.Run(() => SvchostIdentityService.Resolve(pid));
                 // The row may have been re-attributed while the WMI query ran —
                 // the identity belongs to the old tenant, not the new one.
                 if (item.ProcessId != pid) { item.AbandonIdentity(); return; }

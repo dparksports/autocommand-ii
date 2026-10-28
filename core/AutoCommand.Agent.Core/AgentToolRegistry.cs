@@ -1,4 +1,10 @@
 using System.Collections.Generic;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
@@ -9,7 +15,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using SvchostAnalyzer.Core;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Agent.Core
 {
     /// <summary>
     /// The MCP tool surface the AI-access bridge exposes. Read-only tools

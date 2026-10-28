@@ -1,4 +1,6 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
@@ -6,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     public class RawSocketSnifferService
     {

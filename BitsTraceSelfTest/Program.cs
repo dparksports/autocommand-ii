@@ -5,10 +5,13 @@
 // Download), so the parser is pinned against genuine shapes, not mocks
 // of my own invention.
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.IO;
 using System.Text.Json;
 using AutoCommand.Models;
-using AutoCommand.Services;
 
 int failures = 0;
 void Check(string name, bool pass, string evidence)

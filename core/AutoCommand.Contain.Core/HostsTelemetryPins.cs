@@ -1,9 +1,12 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>One telemetry pin found in the hosts file.</summary>
     public class TelemetryPin

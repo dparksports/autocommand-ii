@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,7 +12,7 @@ using System.Text.Json;
 using System.Threading;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Tails the per-pid JSONL files the instrumented python hook writes into

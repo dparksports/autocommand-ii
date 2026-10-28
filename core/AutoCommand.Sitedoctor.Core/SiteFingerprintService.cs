@@ -1,9 +1,12 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Linq;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Sitedoctor.Core
 {
     /// <summary>
     /// Passive evidence engine behind the Site Doctor tab: groups the

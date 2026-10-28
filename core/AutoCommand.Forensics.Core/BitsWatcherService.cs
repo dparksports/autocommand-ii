@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
@@ -13,7 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     // ─────────────────────────────────────────────────────────────────────
     // BITS COM interop — read-only vtable declarations, slot order per the
@@ -652,7 +656,7 @@ namespace AutoCommand.Services
                     {
                         if (File.Exists(item.CreatorImage))
                         {
-                            var (trusted, subject, hr) = Helpers.AuthenticodeVerifier.Verify(item.CreatorImage);
+                            var (trusted, subject, hr) = AuthenticodeVerifier.Verify(item.CreatorImage);
                             item.CreatorSigner = trusted
                                 ? $"✓ {subject}"
                                 : $"unverified (0x{hr:X8})";

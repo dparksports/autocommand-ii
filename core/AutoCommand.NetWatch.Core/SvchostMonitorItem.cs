@@ -1,8 +1,8 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
-using AutoCommand.Services;
 
 namespace AutoCommand.Models
 {
@@ -553,7 +553,7 @@ namespace AutoCommand.Models
                 if (!string.IsNullOrEmpty(ImagePath)) sb.AppendLine(ImagePath);
                 if (!string.IsNullOrEmpty(_parentImage) && !SameProcessName(_parentImage, ProcessName))
                     sb.AppendLine("spawned by " + System.IO.Path.GetFileName(_parentImage));
-                if (AutoCommand.Services.ProcessGlossary.TryDescribe(
+                if (ProcessGlossary.TryDescribe(
                         !string.IsNullOrEmpty(ImagePath) ? ImagePath : ProcessName, out string gloss))
                     sb.AppendLine("ℹ " + gloss);
                 if (_nameRevealedFrom != null)

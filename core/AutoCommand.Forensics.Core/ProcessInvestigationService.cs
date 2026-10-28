@@ -1,11 +1,15 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// One-call composite investigation of a process: joins the facts the

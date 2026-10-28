@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -7,7 +11,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Native Task Scheduler management via COM (taskschd.dll).

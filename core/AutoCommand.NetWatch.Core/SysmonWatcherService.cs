@@ -1,4 +1,5 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     public class SysmonWatcherService
     {

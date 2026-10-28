@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -6,7 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Agent.Core
 {
     /// <summary>
     /// One MCP client AutoCommand knows how to register the 'autocommand'

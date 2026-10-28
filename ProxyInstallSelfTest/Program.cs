@@ -17,7 +17,12 @@
 //                 and outdated (older install) 'autocommand' entries,
 //                 skips unregistered/malformed; Register repairs.
 using System.Diagnostics;
-using AutoCommand.Services;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 
 int failures = 0;
 void Check(string name, bool pass, string detail)

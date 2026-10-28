@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +12,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using Microsoft.Win32;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Installs/uninstalls the embedded python audit-hook payload into python

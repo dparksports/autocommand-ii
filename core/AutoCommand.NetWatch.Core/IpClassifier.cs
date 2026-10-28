@@ -1,7 +1,8 @@
 using System.Net;
+using AutoCommand.NetWatch.Core;
 using System.Net.Sockets;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>
     /// IP ownership classification against session-verified ranges.

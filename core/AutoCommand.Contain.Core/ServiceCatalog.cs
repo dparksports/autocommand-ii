@@ -1,6 +1,9 @@
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     public enum ServiceImpact { Normal = 0, Medium = 1, High = 2 }
 

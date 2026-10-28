@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Diagnostics;
 using System.Management;
 using System.Net;
@@ -7,7 +10,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>One denied telemetry attempt, as observed by the sinkhole.</summary>
     public class TelemetryDeniedAttempt

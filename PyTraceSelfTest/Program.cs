@@ -6,10 +6,13 @@
 //   tls <client.bin> <server.bin> <keylog-dir>   real captured TLS streams → plaintext
 
 using System.Net;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Threading;
 using System.Text;
 using AutoCommand.Models;
-using AutoCommand.Services;
 
 namespace PyTraceSelfTest
 {
@@ -234,7 +237,7 @@ namespace PyTraceSelfTest
                 $"{{ Set-Content -Path ($f + ':Zone.Identifier') -Value '[ZoneTransfer]`r`nZoneId=3' }}");
             Console.WriteLine("marks created");
 
-            var result = AutoCommand.Helpers.MotwUnblocker.UnblockFolder(app);
+            var result = MotwUnblocker.UnblockFolder(app);
             Console.WriteLine(result.Summary);
 
             string check = RunPowerShell(

@@ -1,10 +1,14 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// The "why they connect" half of the BITS tab: a small curated

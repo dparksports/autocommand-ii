@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -7,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using AutoCommand.Models;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Native Windows Firewall management via INetFwPolicy2 COM.
@@ -589,7 +592,7 @@ namespace AutoCommand.Services
             {
                 if (name.StartsWith(NewIpPrefix, StringComparison.OrdinalIgnoreCase) ||
                     name.StartsWith(LegacyIpPrefix[0], StringComparison.OrdinalIgnoreCase))
-                    return Services.IpClassifier.IsMicrosoftInfra(ParseIpTarget(name));
+                    return IpClassifier.IsMicrosoftInfra(ParseIpTarget(name));
                 string app = rule.ApplicationName ?? "";
                 return app.Length > 0 && app.StartsWith(Environment.SystemDirectory, StringComparison.OrdinalIgnoreCase);
             }
@@ -957,7 +960,7 @@ namespace AutoCommand.Services
                                     byKey[key] = t = new BlockedTarget
                                     {
                                         Kind = "ip", Key = key, Ip = ip, Target = ip,
-                                        Class = Services.IpClassifier.Classify(ip),
+                                        Class = IpClassifier.Classify(ip),
                                     };
                             }
                             else

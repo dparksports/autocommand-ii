@@ -1,8 +1,11 @@
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Management;
 using SvchostAnalyzer.Core;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>Resolved svchost identity for one PID: SCM services + -k/-s tokens.</summary>
     public sealed class SvchostPidIdentity

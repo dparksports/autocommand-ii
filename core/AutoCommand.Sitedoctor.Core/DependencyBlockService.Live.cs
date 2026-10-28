@@ -1,10 +1,14 @@
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Sitedoctor.Core
 {
     /// <summary>
     /// The live half of the dependency-block pass: feeds the pure core with

@@ -1,4 +1,8 @@
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Text;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
@@ -7,7 +11,7 @@ using System.Linq;
 using System.Management;
 using System.Xml.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Forensics.Core
 {
     /// <summary>One hop in the ancestry chain, ordered child → root.</summary>
     public sealed class ChainLink
@@ -390,7 +394,7 @@ namespace AutoCommand.Services
                 bool fromArchive = false;
                 if (records.Count == 0)
                 {
-                    foreach (var a in AutoCommand.Services.SysmonArchiveService.SearchCreateEvents(r.Pid, 5))
+                    foreach (var a in SysmonArchiveService.SearchCreateEvents(r.Pid, 5))
                         records.Add((a.Data, (DateTime?)a.TsUtc));
                     fromArchive = records.Count > 0;
                 }

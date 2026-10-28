@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -482,7 +488,7 @@ namespace AutoCommand.Views
         // body moved to the Forensics core (SvchostTraceClassifier) with the
         // phase 6 extraction — the AI-access bridge's svchost trace tool
         // classifies with the same table now
-        internal static string Classify(string ip) => Services.SvchostTraceClassifier.Classify(ip);
+        internal static string Classify(string ip) => SvchostTraceClassifier.Classify(ip);
 
         // ── data access helpers ────────────────────────────────────────────
 

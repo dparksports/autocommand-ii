@@ -1,7 +1,9 @@
 using System;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Text;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Intercept.Core
 {
     /// <summary>
     /// Minimal, bounds-checked TLS ClientHello SNI reader for the sinkhole

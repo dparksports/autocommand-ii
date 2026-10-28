@@ -1,4 +1,7 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,7 +14,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Sitedoctor.Core
 {
     /// <summary>
     /// Active probe engine behind the Site Doctor tab. Sends a small,

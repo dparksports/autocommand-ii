@@ -1,10 +1,13 @@
+using AutoCommand.NetWatch.Core;
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Contain.Core
 {
     /// <summary>
     /// Reads the Windows settings that decide what data Defender and Windows

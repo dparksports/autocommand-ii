@@ -1,7 +1,10 @@
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
+using AutoCommand.Contain.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Linq;
 
-namespace AutoCommand.Services
+namespace AutoCommand.Sitedoctor.Core
 {
     /// <summary>
     /// "A network feature stopped working — which of my blocks is doing it,

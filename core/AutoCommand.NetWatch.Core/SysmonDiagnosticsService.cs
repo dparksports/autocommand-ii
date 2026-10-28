@@ -1,11 +1,11 @@
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoCommand.Helpers;
 
-namespace AutoCommand.Services
+namespace AutoCommand.NetWatch.Core
 {
     /// <summary>All read-only status facts about the Sysmon install, for the status card.</summary>
     public class SysmonStatusInfo

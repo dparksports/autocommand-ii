@@ -1,6 +1,13 @@
 using System.Linq;
 using System.Windows;
 
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+
 namespace AutoCommand
 {
     public partial class App : Application
@@ -147,7 +154,7 @@ namespace AutoCommand
             // listener immediately so proof accumulates even if that tab is
             // never opened this session. Touching the proof store also wires
             // its recorder to the sinkhole. No sinkhole pins → both are no-ops.
-            Services.SinkholeService.Instance.EnsureRunningForCurrentPins();
+            SinkholeService.Instance.EnsureRunningForCurrentPins();
             _ = Services.TelemetryProofService.Instance.TotalDenied;
 
             // Anonymous usage ping (opt-in, off by default): sends the user's
@@ -161,23 +168,23 @@ namespace AutoCommand
             // asks show the AgentConfirmWindow dialog at the app's UI.
             // Headless hosts never install one — their mutating tools are
             // denied with the plain-language note, exactly as before.
-            Services.AgentBridgeService.Interaction = new Services.WpfAgentInteraction();
+            AgentBridgeService.Interaction = new Services.WpfAgentInteraction();
 
             // Auto-started AI session (opt-in from Settings → AI access): the
             // consent was given once at the checkbox; every launch honors it.
             // Read-only unless the mutating preference is separately on.
             if (AgentAutostartPrefOn())
             {
-                var (ok, message) = Services.AgentBridgeService.Instance.Start(
+                var (ok, message) = AgentBridgeService.Instance.Start(
                     allowMutating: AgentMutatingPrefOn());
                 if (ok)
-                    Services.AgentBridgeService.Instance.LogActivity("session", "started (auto)",
+                    AgentBridgeService.Instance.LogActivity("session", "started (auto)",
                         $"mutating {(AgentMutatingPrefOn() ? "on" : "off")}");
             }
         }
 
         private static string AgentPrefPath(string name) => System.IO.Path.Combine(
-            Services.AgentBridgeService.AgentDir, name);
+            AgentBridgeService.AgentDir, name);
 
         private static bool AgentAutostartPrefOn()
         {
@@ -238,7 +245,7 @@ namespace AutoCommand
             if (flagIndex + 1 < args.Length && int.TryParse(args[flagIndex + 1], out int parsed) && parsed > 0)
                 seconds = parsed;
 
-            var (ok, message) = Services.AgentBridgeService.Instance.Start(allowMutating: false);
+            var (ok, message) = AgentBridgeService.Instance.Start(allowMutating: false);
             System.Console.WriteLine(ok
                 ? $"AutoCommand agent session active ({message}) — Ctrl+C or close stdin to stop."
                 : "agent session failed: " + message);
@@ -247,7 +254,7 @@ namespace AutoCommand
             {
                 if (seconds > 0) System.Threading.Thread.Sleep(TimeSpan.FromSeconds(seconds));
                 else while (System.Console.In.ReadLine() != null) { } // until stdin closes
-                Services.AgentBridgeService.Instance.Stop();
+                AgentBridgeService.Instance.Stop();
             }
             Shutdown();
         }
@@ -256,7 +263,7 @@ namespace AutoCommand
         {
             // a live session must never outlive the app: the session file is
             // what grants access, so it dies here even on a crash-next-launch
-            Services.AgentBridgeService.Instance.Stop();
+            AgentBridgeService.Instance.Stop();
             base.OnExit(e);
         }
 
@@ -280,7 +287,7 @@ namespace AutoCommand
         {
             try
             {
-                var installer = new AutoCommand.Services.SysmonInstallerService();
+                var installer = new SysmonInstallerService();
                 var (verified, message) = await installer.CompletePendingRepairIfAnyAsync();
                 if (message == null) return; // no repair was pending
 
@@ -313,31 +320,31 @@ namespace AutoCommand
                 {
                     // one-shot ever: make pfirewall.log a usable second hit source
                     // (independent of Sysmon, so it runs before the install check)
-                    Services.FirewallService.EnsureDropLoggingOnce();
+                    FirewallService.EnsureDropLoggingOnce();
 
                     // name-blocked apps stay blocked across version moves: extends
                     // coverage when a blocked exe appears at a new path and retires
                     // rules whose path an update deleted. Runs without Sysmon too
                     // (startup sweep + retire pass need no event channel).
-                    Services.AppBlockCoverageService.Instance.Start();
+                    AppBlockCoverageService.Instance.Start();
 
                     // drain the DNS backlog when the machine is quiet: no new
                     // Sysmon events for a while = traffic idle = re-ask the
                     // unresolved hostnames/orgs in small polite batches
-                    Services.DnsResolutionService.Instance.StartIdleReconciliation(
-                        () => Services.SysmonWatcherService.QuietFor);
+                    DnsResolutionService.Instance.StartIdleReconciliation(
+                        () => SysmonWatcherService.QuietFor);
 
-                    var installer = new Services.SysmonInstallerService();
-                    if (installer.DetectInstallState() != Services.SysmonInstallState.Installed)
+                    var installer = new SysmonInstallerService();
+                    if (installer.DetectInstallState() != SysmonInstallState.Installed)
                         return; // nothing installed — the install path sizes and archives it
-                    Services.SysmonInstallerService.EnsureChannelSize();
-                    Services.SysmonArchiveService.Prune();
-                    Services.SysmonArchiveService.Backfill();
-                    Services.SysmonArchiveService.StartLiveWatch();
+                    SysmonInstallerService.EnsureChannelSize();
+                    SysmonArchiveService.Prune();
+                    SysmonArchiveService.Backfill();
+                    SysmonArchiveService.StartLiveWatch();
                     // real-time 'who is being blocked' feed: joins Sysmon connects
                     // against the blocked inventory; without it, blocks fire
                     // silently at the kernel and no tab or tool ever sees them
-                    Services.BlockHitFeedService.Instance.Start();
+                    BlockHitFeedService.Instance.Start();
                 });
             }
             catch (System.Exception ex)
