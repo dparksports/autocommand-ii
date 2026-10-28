@@ -245,11 +245,11 @@ TraceProjectStore + TraceProject — namespaces unchanged.
   convert opportunistically.
 - **Upstream sync window 2**: ported `638766c` (RdapService IANA-bootstrap
   + throttle pacing) into the NetWatch core — see PORTING.md.
-- **Namespace migration — DECIDED: keep deferred.** It would touch every
-  using line across ~50 app files, making every future upstream port a
-  merge conflict on namespace lines. The current shared namespaces are the
-  compatibility feature that makes porting near-free. Revisit only if the
-  original archives.
+- **Namespace migration — DECIDED 2026-10-27: the blocker is gone.** The
+  keep-deferred decision was premised on the shared namespaces making
+  upstream ports merge-free; with the upstream freeze (see PORTING.md),
+  that constraint is dead. Migration to `AutoCommand.<Core>.*` proceeds
+  per-cluster, as its own changesets, never mixed with behavior changes.
 - **Singleton→DI — see the BlocksLedger pilot below (iteration B).**
 
 #### Iteration: the DI pilot — `BlocksLedger` (2026-10-27)
@@ -322,6 +322,13 @@ Rules of the road:
 
 ## Post-rewrite iterations log
 
+- **Cutover declared (2026-10-27)** — `dparksports/autocommand-windows`
+  frozen at v2026.10.25.4 (PORTING.md records the closure); this tree
+  becomes the one AutoCommand. The shipping bar is unchanged: every
+  offline self-test suite green against shipped assemblies, app +
+  AgentProxy + AgentHost clean in Debug and Release, release notes per
+  version. The freeze unblocks the previously-gated namespace migration
+  and retires the port-compat constraint everywhere.
 - **v0.7.0 / v2026.10.27.7** — first upstream port through the PORTING.md
   window (RdapService IANA-bootstrap + throttle pacing); deferred items
   resolved (view conversions closed by re-survey; namespace migration
