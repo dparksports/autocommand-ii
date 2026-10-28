@@ -173,6 +173,71 @@ namespace AutoCommand.Services
                     "\n\nCheck the file, or use 'Copy MCP config' by hand.");
         }
 
+        // ── migration self-heal (detect stale registrations, refresh by click) ──
+
+        /// <summary>
+        /// One detected client whose registered 'autocommand' entry points at
+        /// a proxy that no longer exists (broken — the old install was
+        /// deleted or cleaned) or at an older versioned install than the
+        /// current build (outdated — the move-to-a-new-folder case: the
+        /// tools dir survives the move, the version only refreshes when the
+        /// client config is re-registered).
+        /// </summary>
+        public sealed class StaleMcpRegistration
+        {
+            public McpClientRegistration Client;
+            public string RegisteredCommand;
+            public bool Broken;
+        }
+
+        /// <summary>
+        /// Read-only scan of the client configs: which carry an 'autocommand'
+        /// entry whose command is gone or older than currentProxyPath?
+        /// Never writes — the repair is an explicit Register call (backup +
+        /// verify built in), offered from the Be My Guest tab; nothing is
+        /// rewritten silently. Unregistered, malformed and foreign-shaped
+        /// configs are skipped, never flagged. Injectable client list so
+        /// ProxyInstallSelfTest can drive it offline.
+        /// </summary>
+        public static List<StaleMcpRegistration> FindStaleRegistrations(
+            string currentProxyPath, IEnumerable<McpClientRegistration> clients = null)
+        {
+            var stale = new List<StaleMcpRegistration>();
+            if (string.IsNullOrEmpty(currentProxyPath)) return stale;
+            foreach (var client in clients ?? Catalog)
+            {
+                try
+                {
+                    string command = ReadRegisteredCommand(client);
+                    if (command == null) continue;
+                    bool broken = !File.Exists(command);
+                    bool outdated = !broken && !string.Equals(
+                        Path.GetFullPath(command), Path.GetFullPath(currentProxyPath),
+                        StringComparison.OrdinalIgnoreCase);
+                    if (broken || outdated)
+                        stale.Add(new StaleMcpRegistration
+                            { Client = client, RegisteredCommand = command, Broken = broken });
+                }
+                catch { /* one unreadable config must not block the rest */ }
+            }
+            return stale;
+        }
+
+        /// <summary>The 'command' of our 'autocommand' entry in a client
+        /// config, or null when there is none / the file is missing,
+        /// malformed, or shaped differently than the catalog expects.</summary>
+        private static string ReadRegisteredCommand(McpClientRegistration client)
+        {
+            if (!File.Exists(client.ConfigPath)) return null;
+            string text = File.ReadAllText(client.ConfigPath);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (JsonNode.Parse(text) is not JsonObject root) return null;
+            JsonNode node = root;
+            foreach (string k in client.RootKeyPath.Split('/')) node = node?[k];
+            if (node is not JsonObject servers) return null;
+            return (servers["autocommand"] as JsonObject)?["command"]?.GetValue<string>();
+        }
+
         // ── proxy install ─────────────────────────────────────────────────
 
         // The proxy ships as a self-contained single-file exe (release.ps1

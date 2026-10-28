@@ -13,6 +13,9 @@
 //                   never registered
 //   3. no source:   legacy flat set only → legacy path returned unchanged
 //   4. nothing:     no source, no prior install → null
+//   5. migration: stale-registration scan — flags broken (deleted proxy)
+//                 and outdated (older install) 'autocommand' entries,
+//                 skips unregistered/malformed; Register repairs.
 using System.Diagnostics;
 using AutoCommand.Services;
 
@@ -100,6 +103,66 @@ try
     var (p5, m5) = McpClientCatalog.ResolveAndInstallProxy("2026.10.16", Path.Combine(root, "tools3"),
                                                             Array.Empty<string>());
     Check("5a no source, no prior install → null", p5 == null, m5);
+
+    // ── 6. migration self-heal: stale-registration scan ──────────────────
+    // A config whose 'autocommand' entry points at a missing proxy (broken)
+    // or at an older install than current (outdated) is flagged; current,
+    // unregistered, malformed and multi-level-key configs scan clean.
+    // Repair is the normal Register path — same backup + verify rules.
+    string MakeClientConfig(string dir, string rootKey, string command)
+    {
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, "mcp.json");
+        var entry = new System.Text.Json.Nodes.JsonObject();
+        if (command != null) entry["command"] = command;
+        entry["args"] = new System.Text.Json.Nodes.JsonArray();
+        var rootJson = new System.Text.Json.Nodes.JsonObject();
+        System.Text.Json.Nodes.JsonNode section = rootJson;
+        foreach (string k in rootKey.Split('/'))
+        {
+            var next = new System.Text.Json.Nodes.JsonObject();
+            ((System.Text.Json.Nodes.JsonObject)section)[k] = next;
+            section = next;
+        }
+        ((System.Text.Json.Nodes.JsonObject)section)["autocommand"] = entry;
+        File.WriteAllText(path, rootJson.ToJsonString());
+        return path;
+    }
+    McpClientRegistration Client(string id, string configPath, string rootKey) =>
+        new() { Id = id, DisplayName = id, ConfigPath = configPath, RootKeyPath = rootKey };
+
+    string currentProxy = keepExe; // v2026.10.18 — the one complete install left above
+    string dir6 = Path.Combine(root, "clients");
+    var clients = new[]
+    {
+        Client("current",   MakeClientConfig(Path.Combine(dir6, "current"),   "mcpServers", currentProxy), "mcpServers"),
+        Client("gone",      MakeClientConfig(Path.Combine(dir6, "gone"),      "mcpServers",
+                              Path.Combine(tools, "v2026.10.16", "AutoCommand.AgentProxy.exe")), // cleaned above → missing
+            "mcpServers"),
+        Client("outdated",  MakeClientConfig(Path.Combine(dir6, "outdated"),  "mcpServers", Path.Combine(srcNew, "AutoCommand.AgentProxy.exe")), "mcpServers"),
+        Client("unregistered", MakeClientConfig(Path.Combine(dir6, "unregistered"), "mcp/servers", null), "mcp/servers"),
+    };
+    string badPath = MakeClientConfig(Path.Combine(dir6, "malformed"), "mcpServers", "whatever");
+    File.WriteAllText(badPath, "{ not json");
+    var badClient = Client("malformed", badPath, "mcpServers");
+
+    var found = McpClientCatalog.FindStaleRegistrations(currentProxy, clients.Append(badClient).ToArray());
+    Check("6a exactly the broken + outdated flagged",
+          found.Count == 2 && found.Any(s => s.Client.Id == "gone") && found.Any(s => s.Client.Id == "outdated"),
+          "flagged: " + string.Join(",", found.Select(s => s.Client.Id)));
+    Check("6b deleted-install registration is Broken",
+          found.Single(s => s.Client.Id == "gone").Broken, "");
+    Check("6c older-but-existing registration is not Broken",
+          !found.Single(s => s.Client.Id == "outdated").Broken, "");
+    Check("6d null current proxy → nothing flagged",
+          McpClientCatalog.FindStaleRegistrations(null, clients).Count == 0, "");
+
+    var (regOk, regMsg) = McpClientCatalog.Register(clients.First(c => c.Id == "gone"), currentProxy);
+    Check("6e Register repairs the broken config", regOk, regMsg ?? "");
+    var after = McpClientCatalog.FindStaleRegistrations(currentProxy, clients);
+    Check("6f repaired config no longer flagged (only 'outdated' left)",
+          after.Count == 1 && after[0].Client.Id == "outdated",
+          "flagged: " + string.Join(",", after.Select(s => s.Client.Id)));
 }
 finally
 {
